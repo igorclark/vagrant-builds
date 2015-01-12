@@ -1,0 +1,82 @@
+#!/bin/bash
+set -euo pipefail
+
+info_msg () {
+	echo -e '\E[37;44m'"\033[1m::::: "$1"\033[0m"
+	tput sgr0
+}
+
+
+
+info_msg "***** installing OS basics *****"
+
+
+
+info_msg "----- telling debconf to allow libssl restart-without-asking"
+echo "libssl:1.0.0 libraries/restart-without-asking boolean true" | /usr/bin/debconf-set-selections
+
+
+
+info_msg "===== installing RH-alike sysv-conf tools"
+info_msg "apt-get install -y sysv-rc-conf chkconfig"
+apt-get install -y sysv-rc-conf chkconfig
+
+
+
+info_msg "===== updating system package list"
+info_msg "apt-get update"
+apt-get update
+
+
+
+info_msg "===== updating system to latest version"
+info_msg "apt-get upgrade -y"
+apt-get upgrade -y
+
+
+
+info_msg "===== switching off exim4"
+info_msg "service exim4 stop"
+/usr/sbin/service exim4 stop
+info_msg "chkconfig -s exim4 off"
+/sbin/chkconfig -s exim4 off
+
+
+
+info_msg "===== installing supervisor daemon"
+info_msg "apt-get install -y supervisor"
+apt-get install -y supervisor
+
+
+
+info_msg "===== installing munin-node"
+info_msg "apt-get install -y munin-node"
+apt-get install -y munin-node
+
+
+
+info_msg "===== installing useful stuff"
+info_msg "apt-get install -y git vim bzip2 zip unzip"
+apt-get install -y git vim bzip2 zip unzip
+
+
+
+info_msg "setting up vim preferences"
+cat > ~/.exrc <<EOF
+syntax on
+set ai
+set tabstop=4
+EOF
+cp ~/.exrc ~vagrant/.exrc
+chown vagrant:vagrant ~vagrant/.exrc
+cat ~vagrant/.exrc
+
+
+
+info_msg "===== checking for system version"
+info_msg "cat /etc/debian_version"
+cat /etc/debian_version
+
+
+
+info_msg "***** done installing OS basics. *****"

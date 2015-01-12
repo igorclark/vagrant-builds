@@ -1,0 +1,129 @@
+#!/bin/bash
+set -euo pipefail
+
+info_msg () {
+	echo -e '\E[37;44m'"\033[1m::::: "$1"\033[0m"
+	tput sgr0
+}
+
+
+
+info_msg "##### setting up nginx, push-stream module, pagespeed module #####"
+
+
+
+info_msg "===== getting wheezy-backports apt sources list"
+cat >> /etc/apt/sources.list <<EOF
+deb http://ftp.uk.debian.org/debian wheezy-backports main
+deb-src http://ftp.uk.debian.org/debian wheezy-backports main
+EOF
+
+
+
+info_msg "===== updating system package list with wheezy-backports"
+info_msg "apt-get update"
+apt-get update
+
+
+
+info_msg "===== installing nginx prerequisites"
+info_msg "apt-get install -y init-system-helpers"
+apt-get install -y init-system-helpers
+
+
+
+info_msg "===== installing nginx"
+info_msg "apt-get -t wheezy-backports build-dep -y nginx"
+apt-get -t wheezy-backports build-dep -y nginx
+#info_msg "switching off exim4 after libssl updates in nginx build-dep step"
+#info_msg "service exim4 stop"
+#/usr/sbin/service exim4 stop
+#info_msg "chkconfig -s exim4 off"
+#/sbin/chkconfig -s exim4 off
+
+
+
+info_msg "===== installing nginx-push-stream-module and ngx_pagespeed"
+BUILD_DIR=${HOME}/build/nginx+push-stream+pagespeed
+mkdir -p $BUILD_DIR
+cd $BUILD_DIR
+info_msg "working in directory $BUILD_DIR: $(pwd)"
+
+
+
+info_msg "----- getting nginx source"
+info_msg "apt-get source nginx"
+apt-get -t wheezy-backports source nginx
+NGINX_SOURCE=$(ls -d nginx-[0-9\.]*)
+NGINX_BUILD=$BUILD_DIR/$NGINX_SOURCE
+cd $NGINX_BUILD/debian/modules
+info_msg "now in directory $NGINX_BUILD/debian/modules: $(pwd)"
+
+
+
+info_msg "----- downloading push-stream-module code"
+NPSM_VERSION=0.4.0
+curl -O -L https://github.com/wandenberg/nginx-push-stream-module/archive/${NPSM_VERSION}.tar.gz 2>/dev/null
+info_msg "got source: $(ls)"
+tar zxvf ${NPSM_VERSION}.tar.gz
+
+
+
+info_msg "----- downloading ngx_pagespeed module"
+NPS_VERSION=1.8.31.4
+curl -O -L https://github.com/pagespeed/ngx_pagespeed/archive/release-${NPS_VERSION}-beta.tar.gz 2>/dev/null
+info_msg "got ngx_pagespeed, extracting"
+tar zxvf release-${NPS_VERSION}-beta.tar.gz
+cd ngx_pagespeed-release-${NPS_VERSION}-beta
+info_msg "getting psol-${NPS_VERSION}"
+curl -O -L https://dl.google.com/dl/page-speed/psol/${NPS_VERSION}.tar.gz 2>/dev/null
+tar zxvf ${NPS_VERSION}.tar.gz
+
+
+
+info_msg "----- adding push-stream & pagespeed module configs to buildfile \($NGINX_BUILD/debian/rules\)"
+cd $NGINX_BUILD/debian
+info_msg "in $NGINX_BUILD/debian: $(pwd)"
+
+info_msg "updating $NGINX_BUILD/debian/rules"
+sed -i 's/^\(\s*\)\(--add-module=.*[^\]\)$/\1\2 \\\
+\1--add-module=\$(MODULESDIR)\/nginx-push-stream-module-'${NPSM_VERSION}' \\\
+\1--add-module=\$(MODULESDIR\)\/ngx_pagespeed-release-'${NPS_VERSION}'-beta/g' ./rules
+
+info_msg "updating $NGINX_BUILD/debian/changelog to reflect custom version"
+NGINX_CUSTOM_VERSION_MODULES_NAME=push-stream-pagespeed-vbox
+sed -i '1 s/^nginx (\(.*\))/nginx (\1-'${NGINX_CUSTOM_VERSION_MODULES_NAME}')/g' ./changelog
+NGINX_CUSTOM_VERSION=$(head -1 changelog | sed 's/nginx (\(.*\)).*/\1/g')
+info_msg "building nginx custom version: NGINX_CUSTOM_VERSION $NGINX_CUSTOM_VERSION"
+cd $NGINX_BUILD
+info_msg "running dpkg-buildpackage -uc -us -b"
+dpkg-buildpackage -uc -us -b
+ARCH=$(uname -r| sed 's/[0-9\.-]*-\([^-]*\)/\1/g')
+info_msg "architecture: $ARCH"
+cd $BUILD_DIR
+info_msg "in $BUILD_DIR checking for .deb files"
+COMMON=nginx-common_${NGINX_CUSTOM_VERSION}_all.deb
+LIGHT=nginx-light_${NGINX_CUSTOM_VERSION}_$ARCH.deb
+FULL=nginx-full_${NGINX_CUSTOM_VERSION}_$ARCH.deb
+EXTRAS=nginx-extras_${NGINX_CUSTOM_VERSION}_$ARCH.deb
+ls -l $COMMON $LIGHT
+info_msg "running dpkg -i $COMMON $LIGHT"
+dpkg -i $COMMON $LIGHT
+info_msg "done"
+$(which nginx) -V
+
+
+info_msg "===== setting up tmpfs for ngx_pagespeed cache"
+NGX_PAGESPEED_CACHE_DIR=/mnt/vmtmpfs-ngx_pagespeed-cache
+info_msg "mkdir $NGX_PAGESPEED_CACHE_DIR"
+mkdir $NGX_PAGESPEED_CACHE_DIR
+cat >> /etc/fstab <<EOF
+tmpfs ${NGX_PAGESPEED_CACHE_DIR} tmpfs defaults,size=32m 0 0
+EOF
+mount -a
+info_msg "mounted filesystems:"
+mount
+
+
+
+info_msg "##### done setting up nginx, push-stream module, pagespeed module. #####"
