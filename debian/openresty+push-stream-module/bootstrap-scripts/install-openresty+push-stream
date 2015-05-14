@@ -67,9 +67,11 @@ apt-get install -y ruby-dev
 info_msg "===== installing fpm"
 info_msg "gem install fpm"
 gem install fpm
-info_msg "----- patching fpm to preserve symlinks"
-info_msg "curl -o /var/lib/gems/1.9.1/gems/fpm-1.3.3/lib/fpm/package/dir.rb https://github.com/jordansissel/fpm/blob/master/lib/fpm/package/dir.rb"
-curl -o /var/lib/gems/1.9.1/gems/fpm-1.3.3/lib/fpm/package/dir.rb https://github.com/jordansissel/fpm/blob/master/lib/fpm/package/dir.rb
+
+# see https://github.com/jordansissel/fpm/pull/823
+info_msg "----- patching fpm with dir.rb from 'master' to preserve symlinks"
+info_msg "curl -L -o /var/lib/gems/1.9.1/gems/fpm-1.3.3/lib/fpm/package/dir.rb https://raw.githubusercontent.com/jordansissel/fpm/master/lib/fpm/package/dir.rb"
+curl -L -o /var/lib/gems/1.9.1/gems/fpm-1.3.3/lib/fpm/package/dir.rb https://raw.githubusercontent.com/jordansissel/fpm/master/lib/fpm/package/dir.rb
 
 
 

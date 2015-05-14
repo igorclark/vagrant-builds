@@ -49,21 +49,14 @@ It boots up and runs `bootstrap-scripts/ install-openresty+push-stream` as a pro
 
 - runs `make ; make install` in the `ngx_openresty` distribution directory
 
-- updates the debian `nginx` boot script `/etc/init.d/nginx` to point the `DAEMON` variable at the new `openresty` `nginx` binary in `/usr/share/nginx/nginx/sbin`
-
+- symlinks the `/usr/share/nginx/nginx/sbin/nginx` binary at `/usr/sbin/nginx`, so the debian `nginx` boot script `/etc/init.d/nginx` can point to it without any modification
+ 
 - packages up the `openresty` installation (in `/usr/share/nginx`) and the boot script (`/etc/init.d/nginx`) into a debian `.deb` file using [FPM](https://github.com/jordansissel/fpm)
 
 - drops the `.deb` file into the `/vagrant` share on the VM so that it shows up in your Vagrant working directory
 
 That's it. You now have a `.deb` file which you can install in `Virtualbox` VMs to your heart's content.
 
-> **N.B.** The `.deb` file not only depends on `nginx-common` from the debian repo, but also attempts to overwrite the `/etc/init.d/nginx` boot script to point to `/usr/share/nginx/nginx/sbin/nginx` rather than `/usr/sbin/nginx`, so you need to use `--force-overwrite` when installing the `.deb` file on your VM:
-> 
-> ```
-> dpkg -i --force-overwrite <openresty+push-stream.deb>
-> ```
-> 
-> An obviously better way to do this would be to have the `.deb` include a symlink from `/usr/sbin/nginx` to `/usr/share/nginx/nginx/sbin/nginx` so that there's no conflict. I might even do that right now.
 
 
 #### Are there any known issues with it?
