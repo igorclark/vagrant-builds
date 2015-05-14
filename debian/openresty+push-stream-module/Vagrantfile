@@ -6,20 +6,20 @@ VAGRANTFILE_API_VERSION = "2"
 
 Vagrant.configure(VAGRANTFILE_API_VERSION) do |config|
 
-  # nginx box
-  config.vm.define "nginx" do |nginx|
-    nginx.vm.box = "igorclark/debian-7.6"
+  # openresty box
+  config.vm.define "openresty" do |openresty|
+    openresty.vm.box = "igorclark/debian-7.6"
 
-    nginx.vm.hostname = "nginx"
-	nginx.vm.network :private_network, ip: "192.168.56.110"
+    openresty.vm.hostname = "openresty"
+	openresty.vm.network :private_network, ip: "192.168.56.110"
 
-	nginx.vm.provider :virtualbox do |vb|
+	openresty.vm.provider :virtualbox do |vb|
 	  vb.customize [ "modifyvm", :id, "--ioapic", "on" ]
 	  vb.customize [ "modifyvm", :id, "--cpus", "2" ]
 	  vb.customize [ "modifyvm", :id, "--memory", "8192" ]
 	end
 
-    nginx.vm.provision :shell, path: "bootstrap-scripts/install-openresty+push-stream"
+    openresty.vm.provision :shell, path: "bootstrap-scripts/install-openresty+push-stream"
   end
 
   # Disable automatic box update checking. If you disable this, then

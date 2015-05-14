@@ -119,8 +119,8 @@ make
 
 ### add push-stream-module into openresty configure script
 
-AR_OPENRESTY_PACKAGE_VERSION=$(echo "${OPENRESTY_GITHUB_VERSION}" | sed -e 's/^v//g')
-OPENRESTY_LOCAL_NGX_DIR="${OPENRESTY_GITHUB_PROJECT}-${AR_OPENRESTY_PACKAGE_VERSION}"
+LOCAL_OPENRESTY_PACKAGE_VERSION=$(echo "${OPENRESTY_GITHUB_VERSION}" | sed -e 's/^v//g')
+OPENRESTY_LOCAL_NGX_DIR="${OPENRESTY_GITHUB_PROJECT}-${LOCAL_OPENRESTY_PACKAGE_VERSION}"
 info_msg "===== adding ${NPSM_GITHUB_PACKAGE_NAME} to ${OPENRESTY_LOCAL_NGX_DIR}/configure ..."
 sed "s/\(^ *\)\(\[http_rds_csv => 'rds-csv-nginx-module'\],$\)/\1\2\n\1[http_push_stream => 'nginx-push-stream-module'],/g" -i ${OPENRESTY_LOCAL_NGX_DIR}/configure
 
@@ -162,28 +162,26 @@ cd ${OPENRESTY_LOCAL_NGX_DIR}
 
 
 # nginx-extras_1.6.2-1~bpo70+1-push-stream-pagespeed-gce_amd64.deb
-AR_OPENRESTY_PACKAGE_NAME="${OPENRESTY_GITHUB_PROJECT}-${AR_OPENRESTY_PACKAGE_VERSION}+${NPSM_GITHUB_PROJECT}"
-info_msg "===== building ${AR_OPENRESTY_PACKAGE_NAME}"
+LOCAL_OPENRESTY_PACKAGE_NAME="${OPENRESTY_GITHUB_PROJECT}-${LOCAL_OPENRESTY_PACKAGE_VERSION}+${NPSM_GITHUB_PROJECT}"
+info_msg "===== building ${LOCAL_OPENRESTY_PACKAGE_NAME}"
 make
 	
 
 
-info_msg "===== installing ${AR_OPENRESTY_PACKAGE_NAME}"
+info_msg "===== installing ${LOCAL_OPENRESTY_PACKAGE_NAME}"
 make install
 
 
 
 
 info_msg "===== pointing nginx-common init script to openresty"
-sed 's/^DAEMON=.*/DAEMON=\/usr\/share\/nginx\/nginx\/sbin\/nginx/g' -i /etc/init.d/nginx
-info_msg "----- checking for openresty in init script ..."
-egrep '^DAEMON' /etc/init.d/nginx
+ln -s /usr/share/nginx/nginx/sbin/nginx /usr/sbin/nginx
 
 
 
-info_msg "===== building .deb package for ${OPENRESTY_GITHUB_USER}/${AR_OPENRESTY_PACKAGE_VERSION}+push-stream-${NPSM_GITHUB_VERSION}"
-info_msg "fpm -s dir -t deb -d 'nginx-common' -n '${OPENRESTY_GITHUB_USER}' -v ${AR_OPENRESTY_PACKAGE_VERSION}+push-stream-${NPSM_GITHUB_VERSION} /usr/share/nginx /etc/init.d/nginx"
-fpm -s dir -t deb -d 'nginx-common' -n ${OPENRESTY_GITHUB_USER} -v ${AR_OPENRESTY_PACKAGE_VERSION}+push-stream-${NPSM_GITHUB_VERSION} /usr/share/nginx /etc/init.d/nginx
+info_msg "===== building .deb package for ${OPENRESTY_GITHUB_USER}/${LOCAL_OPENRESTY_PACKAGE_VERSION}+push-stream-${NPSM_GITHUB_VERSION}"
+info_msg "fpm -s dir -t deb -d 'nginx-common' -n '${OPENRESTY_GITHUB_USER}' -v ${LOCAL_OPENRESTY_PACKAGE_VERSION}+push-stream-${NPSM_GITHUB_VERSION} /usr/share/nginx /etc/init.d/nginx"
+fpm -s dir -t deb -d 'nginx-common' -n ${OPENRESTY_GITHUB_USER} -v ${LOCAL_OPENRESTY_PACKAGE_VERSION}+push-stream-${NPSM_GITHUB_VERSION} /usr/share/nginx /usr/sbin/nginx
 
 
 
