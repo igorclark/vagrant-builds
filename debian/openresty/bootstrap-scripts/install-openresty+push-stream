@@ -188,7 +188,7 @@ fpm -s dir -t deb -d 'nginx-common' -n ${OPENRESTY_GITHUB_USER} -v ${AR_OPENREST
 
 
 info_msg "===== moving .deb package to /vagrant"
-mv ${OPEN_RESTY_GITHUB_USER}_*.deb /vagrant
+mv ${OPENRESTY_GITHUB_USER}_*.deb /vagrant
 info_msg "ls -l /vagrant"
 ls -l /vagrant
 
