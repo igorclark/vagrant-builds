@@ -36,7 +36,7 @@ vagrant up
 
 #### How does it work?
 
-It boots up and runs `bootstrap-scripts/ install-openresty+push-stream` as a provisioning file. This does the following:
+It boots up and runs `bootstrap-scripts/install-openresty+push-stream` as a provisioning file. This does the following:
 
 - updates the OS and installs a bunch of utilities & prerequisites via `apt-get`
 
