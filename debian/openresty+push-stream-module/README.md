@@ -40,7 +40,7 @@ It boots up and runs `bootstrap-scripts/ install-openresty+push-stream` as a pro
 
 - updates the OS and installs a bunch of utilities & prerequisites via `apt-get`
 
-- installs the debian package `nginx-common`, to take advantage of all the extremely nice config & pacakaging the debian folks have done for their `nginx` packages
+- installs the debian package `nginx-common`, to take advantage of all the extremely nice config & packaging the debian folks have done for their `nginx` packages
 
 - pulls down the latest tagged versions of `ngx_openresty` and `nginx-push-stream-module`
 
