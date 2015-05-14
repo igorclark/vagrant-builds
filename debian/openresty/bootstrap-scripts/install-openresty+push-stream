@@ -1,0 +1,200 @@
+#!/bin/bash
+set -euo pipefail
+
+info_msg () {
+	echo -e '\E[37;44m'"\033[1m::::: "$1"\033[0m"
+	tput sgr0
+}
+
+
+
+info_msg "##### setting up openresty/nginx + push-stream module #####"
+
+
+
+### OS stuff
+
+info_msg "===== getting wheezy-backports apt sources list"
+cat >> /etc/apt/sources.list <<EOF
+deb http://ftp.uk.debian.org/debian wheezy-backports main
+deb-src http://ftp.uk.debian.org/debian wheezy-backports main
+EOF
+
+
+info_msg "===== getting debian keyring packages"
+info_msg "apt-get install -y debian-keyring debian-archive-keyring"
+apt-get install -y debian-keyring debian-archive-keyring
+
+
+
+info_msg "===== updating system package list with wheezy-backports"
+info_msg "apt-get -o Acquire::Check-Valid-Until=false update"
+apt-get -o Acquire::Check-Valid-Until=false update
+
+
+
+### useful stuff
+
+info_msg "===== installing useful tools"
+info_msg "apt-get install -y htop jq"
+apt-get install -y htop jq
+
+
+
+### openresty/nginx stuff
+
+info_msg "===== installing openresty prerequisites"
+info_msg "apt-get install -y init-system-helpers libreadline-dev libncurses5-dev libpcre3-dev libssl-dev perl make libgeoip1 libgeoip-dev"
+apt-get install -y init-system-helpers libreadline-dev libncurses5-dev libpcre3-dev libssl-dev perl make libgeoip1 libgeoip-dev
+
+info_msg "===== installing debian nginx files"
+info_msg "apt-get install -y nginx-common"
+apt-get install -y nginx-common
+
+
+
+### installing FPM https://github.com/jordansissel/fpm
+
+info_msg "===== installing fpm prerequisites"
+info_msg "apt-get install -y ruby-dev"
+apt-get install -y ruby-dev
+info_msg "===== installing fpm"
+info_msg "gem install fpm"
+gem install fpm
+
+
+
+### kick off openresty install http://openresty.org/
+
+OPENRESTY_GITHUB_USER='openresty'
+OPENRESTY_GITHUB_PROJECT='ngx_openresty'
+info_msg "===== getting github project info for ${OPENRESTY_GITHUB_USER}/${OPENRESTY_GITHUB_PROJECT} latest version"
+OPENRESTY_GITHUB_INFO=$(curl https://api.github.com/repos/${OPENRESTY_GITHUB_USER}/${OPENRESTY_GITHUB_PROJECT}/tags 2>/dev/null)
+OPENRESTY_GITHUB_VERSION=$(echo "${OPENRESTY_GITHUB_INFO}"| jq -r '.[0].name')
+OPENRESTY_GITHUB_TARBALL_URL=$(echo "${OPENRESTY_GITHUB_INFO}"| jq -r '.[0].tarball_url')
+OPENRESTY_GITHUB_COMMIT_STRING=$(echo "${OPENRESTY_GITHUB_INFO}" | jq -r '.[0].commit.sha[0:7]')
+OPENRESTY_GITHUB_PACKAGE_NAME="${OPENRESTY_GITHUB_USER}-${OPENRESTY_GITHUB_PROJECT}-${OPENRESTY_GITHUB_COMMIT_STRING}"
+
+info_msg "===== retrieving ${OPENRESTY_GITHUB_USER}/${OPENRESTY_GITHUB_PROJECT} version ${OPENRESTY_GITHUB_VERSION}"
+OPENRESTY_LOCAL_TARBALL_NAME=${OPENRESTY_GITHUB_PACKAGE_NAME}-${OPENRESTY_GITHUB_VERSION}.tar.gz
+curl -o ${OPENRESTY_LOCAL_TARBALL_NAME} -L ${OPENRESTY_GITHUB_TARBALL_URL}
+
+tar zxvf ${OPENRESTY_LOCAL_TARBALL_NAME}
+info_msg "===== changing to ${OPENRESTY_GITHUB_USER} directory"
+cd ${OPENRESTY_GITHUB_PACKAGE_NAME}
+ls -l
+
+
+
+### get info for push-stream-module https://github.com/wandenberg/nginx-push-stream-module
+
+NPSM_GITHUB_USER='wandenberg'
+NPSM_GITHUB_PROJECT='nginx-push-stream-module'
+info_msg "===== getting github project info for ${NPSM_GITHUB_USER}/${NPSM_GITHUB_PROJECT} latest version"
+NPSM_GITHUB_INFO=$(curl https://api.github.com/repos/${NPSM_GITHUB_USER}/${NPSM_GITHUB_PROJECT}/tags 2>/dev/null)
+NPSM_GITHUB_VERSION=$(echo "${NPSM_GITHUB_INFO}"| jq -r '.[0].name')
+NPSM_GITHUB_TARBALL_URL=$(echo "${NPSM_GITHUB_INFO}"| jq -r '.[0].tarball_url')
+NPSM_GITHUB_COMMIT_STRING=$(echo "${NPSM_GITHUB_INFO}" | jq -r '.[0].commit.sha[0:7]')
+NPSM_GITHUB_PACKAGE_NAME="${NPSM_GITHUB_USER}-${NPSM_GITHUB_PROJECT}-${NPSM_GITHUB_COMMIT_STRING}"
+
+
+
+### add to the openresty build system
+
+ESCAPED_NPSM_GITHUB_TARBALL_URL=$(echo "${NPSM_GITHUB_TARBALL_URL}" | sed 's/\//\\\//g')
+OPENRESTY_NPSM_PACKAGE_NAME="${NPSM_GITHUB_PROJECT}-${NPSM_GITHUB_VERSION}"
+OPENRESTY_NPSM_TARBALL_NAME="${OPENRESTY_NPSM_PACKAGE_NAME}.tar.gz"
+
+info_msg "===== adding push-stream-module to the ${OPENRESTY_GITHUB_PROJECT} 'mirror-tarballs' script"
+sed "s/\(^.* \*\.tar\.gz$\)/ver=${NPSM_GITHUB_VERSION}\n\$root\/util\/get-tarball \"${ESCAPED_NPSM_GITHUB_TARBALL_URL}\" -O \"${OPENRESTY_NPSM_TARBALL_NAME}\" || exit 1\ntar -xzf ${OPENRESTY_NPSM_TARBALL_NAME} || exit 1\nmv ${NPSM_GITHUB_PACKAGE_NAME} ${OPENRESTY_NPSM_PACKAGE_NAME} || exit 1\n\n#################################\n\n\1/g" -i util/mirror-tarballs
+
+
+
+### pull in openresty packages
+
+info_msg "===== building ${OPENRESTY_GITHUB_PROJECT}-${OPENRESTY_GITHUB_COMMIT_STRING}/${OPENRESTY_GITHUB_VERSION} (=pre-build, pull down bundle) ..."
+make
+
+
+
+### add push-stream-module into openresty configure script
+
+AR_OPENRESTY_PACKAGE_VERSION=$(echo "${OPENRESTY_GITHUB_VERSION}" | sed -e 's/^v//g')
+OPENRESTY_LOCAL_NGX_DIR="${OPENRESTY_GITHUB_PROJECT}-${AR_OPENRESTY_PACKAGE_VERSION}"
+info_msg "===== adding ${NPSM_GITHUB_PACKAGE_NAME} to ${OPENRESTY_LOCAL_NGX_DIR}/configure ..."
+sed "s/\(^ *\)\(\[http_rds_csv => 'rds-csv-nginx-module'\],$\)/\1\2\n\1[http_push_stream => 'nginx-push-stream-module'],/g" -i ${OPENRESTY_LOCAL_NGX_DIR}/configure
+
+
+
+### run openresty configure script, using choice configure options from 'nginx -V' in debian nginx package
+### so we can take advantage of the very lovely init script and conf/packaging work the debian folks have done
+
+info_msg "configure-ing ${OPENRESTY_LOCAL_NGX_DIR}"
+cd ${OPENRESTY_LOCAL_NGX_DIR}
+./configure \
+--with-cc-opt='-g -O2 -fstack-protector --param=ssp-buffer-size=4 -Wformat -Werror=format-security -D_FORTIFY_SOURCE=2' \
+--with-ld-opt=-Wl,-z,relro \
+--with-luajit \
+--prefix=/usr/share/nginx \
+--conf-path=/etc/nginx/nginx.conf \
+--http-log-path=/var/log/nginx/access.log \
+--error-log-path=/var/log/nginx/error.log \
+--lock-path=/var/lock/nginx.lock \
+--pid-path=/run/nginx.pid \
+--http-client-body-temp-path=/var/lib/nginx/body \
+--http-fastcgi-temp-path=/var/lib/nginx/fastcgi \
+--http-proxy-temp-path=/var/lib/nginx/proxy \
+--http-scgi-temp-path=/var/lib/nginx/scgi \
+--http-uwsgi-temp-path=/var/lib/nginx/uwsgi \
+--with-debug \
+--with-pcre-jit \
+--with-ipv6 \
+--with-http_ssl_module \
+--with-http_stub_status_module \
+--with-http_realip_module \
+--with-http_auth_request_module \
+--with-http_addition_module \
+--with-http_geoip_module \
+--with-http_gzip_static_module \
+--with-http_sub_module
+
+
+
+
+# nginx-extras_1.6.2-1~bpo70+1-push-stream-pagespeed-gce_amd64.deb
+AR_OPENRESTY_PACKAGE_NAME="${OPENRESTY_GITHUB_PROJECT}-${AR_OPENRESTY_PACKAGE_VERSION}+${NPSM_GITHUB_PROJECT}"
+info_msg "===== building ${AR_OPENRESTY_PACKAGE_NAME}"
+make
+	
+
+
+info_msg "===== installing ${AR_OPENRESTY_PACKAGE_NAME}"
+make install
+
+
+
+
+info_msg "===== pointing nginx-common init script to openresty"
+sed 's/^DAEMON=.*/DAEMON=\/usr\/share\/nginx\/nginx\/sbin\/nginx/g' -i /etc/init.d/nginx
+info_msg "----- checking for openresty in init script ..."
+egrep '^DAEMON' /etc/init.d/nginx
+
+
+
+info_msg "===== building .deb package for ${OPENRESTY_GITHUB_USER}/${AR_OPENRESTY_PACKAGE_VERSION}+push-stream-${NPSM_GITHUB_VERSION}"
+info_msg "fpm -s dir -t deb -d 'nginx-common' -n '${OPENRESTY_GITHUB_USER}' -v ${AR_OPENRESTY_PACKAGE_VERSION}+push-stream-${NPSM_GITHUB_VERSION} /usr/share/nginx /etc/init.d/nginx"
+fpm -s dir -t deb -d 'nginx-common' -n ${OPENRESTY_GITHUB_USER} -v ${AR_OPENRESTY_PACKAGE_VERSION}+push-stream-${NPSM_GITHUB_VERSION} /usr/share/nginx /etc/init.d/nginx
+
+
+
+info_msg "===== moving .deb package to /vagrant"
+mv ${OPEN_RESTY_GITHUB_USER}_*.deb /vagrant
+info_msg "ls -l /vagrant"
+ls -l /vagrant
+
+
+
+# happy happy joy joy
+info_msg "===== build complete" 
+info_msg "##### done setting up openresty/nginx + push-stream module. #####"
+exit 0
