@@ -1,6 +1,10 @@
 #!/bin/bash
 set -euo pipefail
 
+
+
+### make info messages hi-vis
+
 info_msg () {
 	echo -e '\E[37;44m'"\033[1m::::: "$1"\033[0m"
 	tput sgr0
@@ -8,11 +12,13 @@ info_msg () {
 
 
 
+### get started
+
 info_msg "##### setting up openresty/nginx + push-stream module #####"
 
 
 
-### OS stuff
+### update OS stuff
 
 info_msg "===== getting wheezy-backports apt sources list"
 cat >> /etc/apt/sources.list <<EOF
@@ -33,15 +39,15 @@ apt-get -o Acquire::Check-Valid-Until=false update
 
 
 
-### useful stuff
+### install useful stuff
 
 info_msg "===== installing useful tools"
-info_msg "apt-get install -y htop jq"
-apt-get install -y htop jq
+info_msg "apt-get install -y jq"
+apt-get install -y jq
 
 
 
-### openresty/nginx stuff
+### install openresty/nginx stuff
 
 info_msg "===== installing openresty prerequisites"
 info_msg "apt-get install -y init-system-helpers libreadline-dev libncurses5-dev libpcre3-dev libssl-dev perl make libgeoip1 libgeoip-dev"
@@ -53,7 +59,7 @@ apt-get install -y nginx-common
 
 
 
-### installing FPM https://github.com/jordansissel/fpm
+### install FPM meta-packager | https://github.com/jordansissel/fpm
 
 info_msg "===== installing fpm prerequisites"
 info_msg "apt-get install -y ruby-dev"
@@ -64,7 +70,7 @@ gem install fpm
 
 
 
-### kick off openresty install http://openresty.org/
+### kick off openresty install | http://openresty.org/
 
 OPENRESTY_GITHUB_USER='openresty'
 OPENRESTY_GITHUB_PROJECT='ngx_openresty'
@@ -86,7 +92,7 @@ ls -l
 
 
 
-### get info for push-stream-module https://github.com/wandenberg/nginx-push-stream-module
+### get info for push-stream-module | https://github.com/wandenberg/nginx-push-stream-module
 
 NPSM_GITHUB_USER='wandenberg'
 NPSM_GITHUB_PROJECT='nginx-push-stream-module'
@@ -99,7 +105,7 @@ NPSM_GITHUB_PACKAGE_NAME="${NPSM_GITHUB_USER}-${NPSM_GITHUB_PROJECT}-${NPSM_GITH
 
 
 
-### add to the openresty build system
+### add push-stream-module to the openresty build system
 
 ESCAPED_NPSM_GITHUB_TARBALL_URL=$(echo "${NPSM_GITHUB_TARBALL_URL}" | sed 's/\//\\\//g')
 OPENRESTY_NPSM_PACKAGE_NAME="${NPSM_GITHUB_PROJECT}-${NPSM_GITHUB_VERSION}"
@@ -112,7 +118,7 @@ sed "s/\(^.* \*\.tar\.gz$\)/ver=${NPSM_GITHUB_VERSION}\n\$root\/util\/get-tarbal
 
 ### pull in openresty packages
 
-info_msg "===== building ${OPENRESTY_GITHUB_PROJECT}-${OPENRESTY_GITHUB_COMMIT_STRING}/${OPENRESTY_GITHUB_VERSION} (=pre-build, pull down bundle) ..."
+info_msg "===== building ${OPENRESTY_GITHUB_PROJECT}-${OPENRESTY_GITHUB_COMMIT_STRING}/${OPENRESTY_GITHUB_VERSION} (= pre-build, pull down bundle) ..."
 make
 
 
@@ -160,30 +166,34 @@ cd ${OPENRESTY_LOCAL_NGX_DIR}
 
 
 
+### build & install openresty
+### - package created by FPM will be openresty_<version>+push-stream-<version>_<arch>.deb
 
-# nginx-extras_1.6.2-1~bpo70+1-push-stream-pagespeed-gce_amd64.deb
 LOCAL_OPENRESTY_PACKAGE_NAME="${OPENRESTY_GITHUB_PROJECT}-${LOCAL_OPENRESTY_PACKAGE_VERSION}+${NPSM_GITHUB_PROJECT}"
 info_msg "===== building ${LOCAL_OPENRESTY_PACKAGE_NAME}"
 make
-	
-
 
 info_msg "===== installing ${LOCAL_OPENRESTY_PACKAGE_NAME}"
 make install
 
 
 
+### set up necessary files for .deb package
 
 info_msg "===== pointing nginx-common init script to openresty"
 ln -s /usr/share/nginx/nginx/sbin/nginx /usr/sbin/nginx
 
 
 
+### build the package
+
 info_msg "===== building .deb package for ${OPENRESTY_GITHUB_USER}/${LOCAL_OPENRESTY_PACKAGE_VERSION}+push-stream-${NPSM_GITHUB_VERSION}"
 info_msg "fpm -s dir -t deb -d 'nginx-common' -n '${OPENRESTY_GITHUB_USER}' -v ${LOCAL_OPENRESTY_PACKAGE_VERSION}+push-stream-${NPSM_GITHUB_VERSION} /usr/share/nginx /etc/init.d/nginx"
 fpm -s dir -t deb -d 'nginx-common' -n ${OPENRESTY_GITHUB_USER} -v ${LOCAL_OPENRESTY_PACKAGE_VERSION}+push-stream-${NPSM_GITHUB_VERSION} /usr/share/nginx /usr/sbin/nginx
 
 
+
+### get on the home straight
 
 info_msg "===== moving .deb package to /vagrant"
 mv ${OPENRESTY_GITHUB_USER}_*.deb /vagrant
@@ -192,7 +202,8 @@ ls -l /vagrant
 
 
 
-# happy happy joy joy
+### happy happy joy joy
+
 info_msg "===== build complete" 
 info_msg "##### done setting up openresty/nginx + push-stream module. #####"
 exit 0

@@ -68,4 +68,6 @@ That's it. You now have a `.deb` file which you can install in `Virtualbox` VMs 
 
 #### Are there any known issues with it?
 
-It works pretty well, but it's not exactly, uh, elegant. The approach I take with these things is just to `set -euo pipefail` in all `bash` scripts so that any failure in any part of any command makes the whole thing crap out, forcing me to keep going back and tweaking it to make every step work before the whole thing will run. And, you know, fix it every time something changes upstream. Lovely.
+It works pretty well, but it's not exactly, uh, elegant. Also, it relies on naming conventions in the `openresty` project as well as version schemes for `openresty` and `nginx-push-stream-module`, so if these change it'll break. 
+
+The approach I take with these things is just to `set -euo pipefail` in all `bash` scripts, so that any failure in any part of any command makes the whole thing crap out. Which forces me to keep going back and tweaking it to make every step work before the whole thing will run. (And, you know, fix it every time something changes upstream.) Lovely.
