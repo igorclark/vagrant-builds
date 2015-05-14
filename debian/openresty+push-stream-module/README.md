@@ -6,14 +6,13 @@ It's a [Vagrant](http://vagrantup.com/)file and provisioning script which, when 
 
 It spits out a [debian](http://debian.org/) `.deb` package into your Vagrant host's working directory, containing `openresty-nginx+push-stream`, and a slightly modified `init` script to run it. It really wouldn't take much work to have it spit out `.rpm` packages too.
 
-I've tested it on [Virtualbox](http://virtualbox.org/). The provisioning file will probably work largely unmodified in `debian` images on [AWS](http://aws.amazon.com/)/[GCE](http://cloud.google.com/compute/)/etc, too.
+I've tested it on [Virtualbox](http://virtualbox.org/). The provisioning file will probably work largely unmodified in `debian` images on [AWS](http://aws.amazon.com/)/[GCE](http://cloud.google.com/compute/)/la-la-la, too.
 
 #### Why does it do that?
 
-- `OpenResty` is **cool**. It embeds [LuaJIT](http://luajit.org/) (a fast, just-in-time-compiling [Lua](http://www.lua.org/) runtime) into [nginx](http://nginx.org/), bundling up a bunch of useful `nginx` extensions and HTTP exposing swathes of `nginx` API to your Lua code. So you're basically scripting the `nginx` runtime, right down to request/response/header(etc) level, along with a bunch of added functionality (including async `mysql`/`redis`/`memcached` clients and more) - and you're doing it neat async code which doesn't have layers of painful callbacks, and which runs *really* fast. Meaning, you have a fully-fledged asynchronous application server running inside `nginx`. Basically, it does what `node.js` does, but with an "arguably" better language, and with full access to all the features and the proper configuration mechanisms & conventions of a proper webserver. *(cough)*
+- `OpenResty` is **cool**. It embeds [LuaJIT](http://luajit.org/) (a fast, just-in-time-compiling [Lua](http://www.lua.org/) runtime) into [nginx](http://nginx.org/), bundling up a bunch of useful `nginx` extensions and HTTP exposing swathes of `nginx` API to your Lua code. So you're basically scripting the `nginx` runtime, right down to request/response/header(etc) level, along with a bunch of added functionality (including async `mysql`/`redis`/`memcached` clients and more) - and you're doing it neat async code which doesn't have layers of painful callbacks, and which runs *really* fast. Meaning, you have a fully-fledged asynchronous application server running inside `nginx`. Basically, it does what `node.js` does, but with an "arguably" better language, and with full access to all the features - and the well-established configuration mechanisms & conventions - of an extremely powerful "proper" webserver. *(cough)*
 
 - The `push-stream-module` is also **extremely** cool. It basically terminates `WebSocket` and `EventSource` connections for you, keeping the connections alive with extremely low memory overhead, and letting you send messages to individual or broadcast "channels" (or any combination of the two) just by sending simple `HTTP POST`s to a `publish` URL configurable in `nginx.conf`. It's used in a bunch of very high-traffic sites and pretty much just handles most of the headaches of real-time server-to-client web messaging, leaving you code and reason in a pretty standard web-app fashion.
-
 
 #### How do I use it?
 
