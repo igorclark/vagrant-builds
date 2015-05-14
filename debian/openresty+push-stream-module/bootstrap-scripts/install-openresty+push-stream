@@ -67,6 +67,9 @@ apt-get install -y ruby-dev
 info_msg "===== installing fpm"
 info_msg "gem install fpm"
 gem install fpm
+info_msg "----- patching fpm to preserve symlinks"
+info_msg "curl -o /var/lib/gems/1.9.1/gems/fpm-1.3.3/lib/fpm/package/dir.rb https://github.com/jordansissel/fpm/blob/master/lib/fpm/package/dir.rb"
+curl -o /var/lib/gems/1.9.1/gems/fpm-1.3.3/lib/fpm/package/dir.rb https://github.com/jordansissel/fpm/blob/master/lib/fpm/package/dir.rb
 
 
 
@@ -188,7 +191,7 @@ ln -s /usr/share/nginx/nginx/sbin/nginx /usr/sbin/nginx
 ### build the package
 
 info_msg "===== building .deb package for ${OPENRESTY_GITHUB_USER}/${LOCAL_OPENRESTY_PACKAGE_VERSION}+push-stream-${NPSM_GITHUB_VERSION}"
-info_msg "fpm -s dir -t deb -d 'nginx-common' -n '${OPENRESTY_GITHUB_USER}' -v ${LOCAL_OPENRESTY_PACKAGE_VERSION}+push-stream-${NPSM_GITHUB_VERSION} /usr/share/nginx /etc/init.d/nginx"
+info_msg "fpm -s dir -t deb -d 'nginx-common' -n '${OPENRESTY_GITHUB_USER}' -v ${LOCAL_OPENRESTY_PACKAGE_VERSION}+push-stream-${NPSM_GITHUB_VERSION} /usr/share/nginx /usr/sbin/nginx"
 fpm -s dir -t deb -d 'nginx-common' -n ${OPENRESTY_GITHUB_USER} -v ${LOCAL_OPENRESTY_PACKAGE_VERSION}+push-stream-${NPSM_GITHUB_VERSION} /usr/share/nginx /usr/sbin/nginx
 
 
