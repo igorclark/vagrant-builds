@@ -19,6 +19,13 @@ Vagrant.configure(VAGRANTFILE_API_VERSION) do |config|
 	  vb.customize [ "modifyvm", :id, "--memory", "8192" ]
 	end
 
+    # fix that annoying "stdin: is not a tty"
+    # see http://foo-o-rama.com/vagrant--stdin-is-not-a-tty--fix.html
+    openresty.vm.provision "fix-no-tty", type: "shell" do |s|
+        s.privileged = false
+        s.inline = "sudo sed -i '/tty/!s/mesg n/tty -s \\&\\& mesg n/' /root/.profile"
+    end
+
     openresty.vm.provision :shell, path: "bootstrap-scripts/install-openresty+push-stream"
   end
 

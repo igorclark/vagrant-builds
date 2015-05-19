@@ -192,9 +192,11 @@ ln -s /usr/share/nginx/nginx/sbin/nginx /usr/sbin/nginx
 
 ### build the package
 
+FPM_OPENRESTY_PACKAGE_VERSION=${LOCAL_OPENRESTY_PACKAGE_VERSION}+push-stream-${NPSM_GITHUB_VERSION}-vbox
+FPM_OPENRESTY_FILE_PATHS="/usr/share/nginx/bin /usr/share/nginx/luajit /usr/share/nginx/lualib /usr/share/nginx/nginx /usr/sbin/nginx"
 info_msg "===== building .deb package for ${OPENRESTY_GITHUB_USER}/${LOCAL_OPENRESTY_PACKAGE_VERSION}+push-stream-${NPSM_GITHUB_VERSION}"
-info_msg "fpm -s dir -t deb -d 'nginx-common' -n '${OPENRESTY_GITHUB_USER}' -v ${LOCAL_OPENRESTY_PACKAGE_VERSION}+push-stream-${NPSM_GITHUB_VERSION} /usr/share/nginx /usr/sbin/nginx"
-fpm -s dir -t deb -d 'nginx-common' -n ${OPENRESTY_GITHUB_USER} -v ${LOCAL_OPENRESTY_PACKAGE_VERSION}+push-stream-${NPSM_GITHUB_VERSION} /usr/share/nginx /usr/sbin/nginx
+info_msg "fpm -s dir -t deb -d 'nginx-common' -n ${OPENRESTY_GITHUB_USER} -v ${LOCAL_OPENRESTY_PACKAGE_VERSION}+push-stream-${NPSM_GITHUB_VERSION} /usr/share/nginx/bin /usr/share/nginx/luajit /usr/share/nginx/lualib /usr/share/nginx/nginx /usr/sbin/nginx"
+fpm -s dir -t deb -d 'nginx-common' -n ${OPENRESTY_GITHUB_USER} -v ${FPM_OPENRESTY_PACKAGE_VERSION} ${FPM_OPENRESTY_FILE_PATHS}
 
 
 
