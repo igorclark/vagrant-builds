@@ -70,8 +70,8 @@ gem install fpm
 
 # see https://github.com/jordansissel/fpm/pull/823
 info_msg "----- patching fpm with dir.rb from 'master' to preserve symlinks"
-info_msg "curl -L -o /var/lib/gems/1.9.1/gems/fpm-1.3.3/lib/fpm/package/dir.rb https://raw.githubusercontent.com/jordansissel/fpm/master/lib/fpm/package/dir.rb"
-curl -L -o /var/lib/gems/1.9.1/gems/fpm-1.3.3/lib/fpm/package/dir.rb https://raw.githubusercontent.com/jordansissel/fpm/master/lib/fpm/package/dir.rb
+info_msg "curl -L -o /var/lib/gems/1.9.1/gems/fpm-1.3.3/lib/fpm/package/dir.rb https://raw.githubusercontent.com/jordansissel/fpm/master/lib/fpm/package/dir.rb 2>/dev/null"
+curl -L -o /var/lib/gems/1.9.1/gems/fpm-1.3.3/lib/fpm/package/dir.rb https://raw.githubusercontent.com/jordansissel/fpm/master/lib/fpm/package/dir.rb 2>/dev/null
 
 
 
@@ -88,7 +88,7 @@ OPENRESTY_GITHUB_PACKAGE_NAME="${OPENRESTY_GITHUB_USER}-${OPENRESTY_GITHUB_PROJE
 
 info_msg "===== retrieving ${OPENRESTY_GITHUB_USER}/${OPENRESTY_GITHUB_PROJECT} version ${OPENRESTY_GITHUB_VERSION}"
 OPENRESTY_LOCAL_TARBALL_NAME=${OPENRESTY_GITHUB_PACKAGE_NAME}-${OPENRESTY_GITHUB_VERSION}.tar.gz
-curl -o ${OPENRESTY_LOCAL_TARBALL_NAME} -L ${OPENRESTY_GITHUB_TARBALL_URL}
+curl -o ${OPENRESTY_LOCAL_TARBALL_NAME} -L ${OPENRESTY_GITHUB_TARBALL_URL} 2>/dev/null
 
 tar zxvf ${OPENRESTY_LOCAL_TARBALL_NAME}
 info_msg "===== changing to ${OPENRESTY_GITHUB_USER} directory"
@@ -121,6 +121,30 @@ sed "s/\(^.* \*\.tar\.gz$\)/ver=${NPSM_GITHUB_VERSION}\n\$root\/util\/get-tarbal
 
 
 
+### get info for cache purge module | https://github.com/FRiCKLE/ngx_cache_purge
+
+NCPM_GITHUB_USER='FRiCKLE'
+NCPM_GITHUB_PROJECT='ngx_cache_purge'
+info_msg "===== getting github project info for ${NCPM_GITHUB_USER}/${NCPM_GITHUB_PROJECT} latest version"
+NCPM_GITHUB_INFO=$(curl https://api.github.com/repos/${NCPM_GITHUB_USER}/${NCPM_GITHUB_PROJECT}/tags 2>/dev/null)
+NCPM_GITHUB_VERSION=$(echo "${NCPM_GITHUB_INFO}"| jq -r '.[0].name')
+NCPM_GITHUB_TARBALL_URL=$(echo "${NCPM_GITHUB_INFO}"| jq -r '.[0].tarball_url')
+NCPM_GITHUB_COMMIT_STRING=$(echo "${NCPM_GITHUB_INFO}" | jq -r '.[0].commit.sha[0:7]')
+NCPM_GITHUB_PACKAGE_NAME="${NCPM_GITHUB_USER}-${NCPM_GITHUB_PROJECT}-${NCPM_GITHUB_COMMIT_STRING}"
+
+
+
+### add  cache purge module to the openresty build system
+
+ESCAPED_NCPM_GITHUB_TARBALL_URL=$(echo "${NCPM_GITHUB_TARBALL_URL}" | sed 's/\//\\\//g')
+OPENRESTY_NCPM_PACKAGE_NAME="${NCPM_GITHUB_PROJECT}-${NCPM_GITHUB_VERSION}"
+OPENRESTY_NCPM_TARBALL_NAME="${OPENRESTY_NCPM_PACKAGE_NAME}.tar.gz"
+
+info_msg "===== adding cache purge module to the ${OPENRESTY_GITHUB_PROJECT} 'mirror-tarballs' script"
+sed "s/\(^.* \*\.tar\.gz$\)/ver=${NCPM_GITHUB_VERSION}\n\$root\/util\/get-tarball \"${ESCAPED_NCPM_GITHUB_TARBALL_URL}\" -O \"${OPENRESTY_NCPM_TARBALL_NAME}\" || exit 1\ntar -xzf ${OPENRESTY_NCPM_TARBALL_NAME} || exit 1\nmv ${NCPM_GITHUB_PACKAGE_NAME} ${OPENRESTY_NCPM_PACKAGE_NAME} || exit 1\n\n#################################\n\n\1/g" -i util/mirror-tarballs
+
+
+
 ### pull in openresty packages
 
 info_msg "===== building ${OPENRESTY_GITHUB_PROJECT}-${OPENRESTY_GITHUB_COMMIT_STRING}/${OPENRESTY_GITHUB_VERSION} (= pre-build, pull down bundle) ..."
@@ -129,11 +153,15 @@ make
 
 
 ### add push-stream-module into openresty configure script
+### values in key-value pairs http_k_k => http_v_v are names of github projects
+### ie nginx-push-stream-module, ngx_cache_purge
 
 LOCAL_OPENRESTY_PACKAGE_VERSION=$(echo "${OPENRESTY_GITHUB_VERSION}" | sed -e 's/^v//g')
 OPENRESTY_LOCAL_NGX_DIR="${OPENRESTY_GITHUB_PROJECT}-${LOCAL_OPENRESTY_PACKAGE_VERSION}"
 info_msg "===== adding ${NPSM_GITHUB_PACKAGE_NAME} to ${OPENRESTY_LOCAL_NGX_DIR}/configure ..."
-sed "s/\(^ *\)\(\[http_rds_csv => 'rds-csv-nginx-module'\],$\)/\1\2\n\1[http_push_stream => 'nginx-push-stream-module'],/g" -i ${OPENRESTY_LOCAL_NGX_DIR}/configure
+sed \
+	-e "s/\(^ *\)\(\[http_rds_csv => 'rds-csv-nginx-module'\],$\)/\1\2\n\1[http_push_stream => 'nginx-push-stream-module'],\n\1[http_cache_purge => 'ngx_cache_purge'],/g" \
+	-i ${OPENRESTY_LOCAL_NGX_DIR}/configure
 
 
 
@@ -192,10 +220,10 @@ ln -s /usr/share/nginx/nginx/sbin/nginx /usr/sbin/nginx
 
 ### build the package
 
-FPM_OPENRESTY_PACKAGE_VERSION=${LOCAL_OPENRESTY_PACKAGE_VERSION}+push-stream-${NPSM_GITHUB_VERSION}-vbox
+FPM_OPENRESTY_PACKAGE_VERSION=${LOCAL_OPENRESTY_PACKAGE_VERSION}+push-stream-${NPSM_GITHUB_VERSION}+cache_purge-${NCPM_GITHUB_VERSION}-vbox
 FPM_OPENRESTY_FILE_PATHS="/usr/share/nginx/bin /usr/share/nginx/luajit /usr/share/nginx/lualib /usr/share/nginx/nginx /usr/sbin/nginx"
-info_msg "===== building .deb package for ${OPENRESTY_GITHUB_USER}/${LOCAL_OPENRESTY_PACKAGE_VERSION}+push-stream-${NPSM_GITHUB_VERSION}"
-info_msg "fpm -s dir -t deb -d 'nginx-common' -n ${OPENRESTY_GITHUB_USER} -v ${LOCAL_OPENRESTY_PACKAGE_VERSION}+push-stream-${NPSM_GITHUB_VERSION} /usr/share/nginx/bin /usr/share/nginx/luajit /usr/share/nginx/lualib /usr/share/nginx/nginx /usr/sbin/nginx"
+info_msg "===== building .deb package for ${OPENRESTY_GITHUB_USER}/${FPM_OPENRESTY_PACKAGE_VERSION}"
+info_msg "fpm -s dir -t deb -d 'nginx-common' -n ${OPENRESTY_GITHUB_USER} -v ${FPM_OPENRESTY_PACKAGE_VERSION} ${FPM_OPENRESTY_FILE_PATHS}"
 fpm -s dir -t deb -d 'nginx-common' -n ${OPENRESTY_GITHUB_USER} -v ${FPM_OPENRESTY_PACKAGE_VERSION} ${FPM_OPENRESTY_FILE_PATHS}
 
 
