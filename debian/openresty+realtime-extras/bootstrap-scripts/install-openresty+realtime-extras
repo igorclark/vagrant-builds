@@ -152,7 +152,7 @@ make
 
 
 
-### add push-stream-module into openresty configure script
+### add ngx_cache_purge & nginx-push-stream-module into openresty configure script
 ### values in key-value pairs http_k_k => http_v_v are names of github projects
 ### ie nginx-push-stream-module, ngx_cache_purge
 
@@ -162,6 +162,18 @@ info_msg "===== adding ${NPSM_GITHUB_PACKAGE_NAME} to ${OPENRESTY_LOCAL_NGX_DIR}
 sed \
 	-e "s/\(^ *\)\(\[http_rds_csv => 'rds-csv-nginx-module'\],$\)/\1\2\n\1[http_push_stream => 'nginx-push-stream-module'],\n\1[http_cache_purge => 'ngx_cache_purge'],/g" \
 	-i ${OPENRESTY_LOCAL_NGX_DIR}/configure
+
+
+### patch nginx src to have a longer NGX_MAX_ERROR_STR
+### so that apps / neo proxy cache can log more detailed info
+
+NGX_MAX_ERROR_STR=8192
+info_msg "===== patching nginx to have NGX_MAX_ERROR_STR = ${NGX_MAX_ERROR_STR} to have longer error log messages"
+pushd ${OPENRESTY_LOCAL_NGX_DIR}/bundle/nginx-[0-9\.]*
+sed "s/\(#define NGX_MAX_ERROR_STR *\)4096/\1\t${NGX_MAX_ERROR_STR}/g" -i src/core/ngx_log.h
+info_msg "----- checking for NGX_MAX_ERROR_STR"
+fgrep "define NGX_MAX_ERROR_STR" src/core/ngx_log.h
+popd
 
 
 
@@ -174,6 +186,7 @@ cd ${OPENRESTY_LOCAL_NGX_DIR}
 --with-cc-opt='-g -O2 -fstack-protector --param=ssp-buffer-size=4 -Wformat -Werror=format-security -D_FORTIFY_SOURCE=2' \
 --with-ld-opt=-Wl,-z,relro \
 --with-luajit \
+--with-http_dav_module \
 --prefix=/usr/share/nginx \
 --conf-path=/etc/nginx/nginx.conf \
 --http-log-path=/var/log/nginx/access.log \

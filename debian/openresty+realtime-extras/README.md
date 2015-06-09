@@ -14,7 +14,7 @@ I've tested it on [Virtualbox](http://virtualbox.org/). The provisioning file wi
 
 - The `push-stream-module` is also **extremely** cool. It basically terminates `WebSocket` and `EventSource` connections for you, keeping the connections alive with extremely low memory overhead, and letting you send messages to individual or broadcast "channels" (or any combination of the two) just by sending simple `HTTP POST`s to a `publish` URL configurable in `nginx.conf`. It's used in a bunch of very high-traffic sites and pretty much just handles most of the headaches of real-time server-to-client web messaging, leaving you much freer to code and reason in a pretty standard web-app fashion.
 
-- Running dynamic apps with real-time messaging is pretty likely to need some content caching. Combining `ngx_lua` and the `push-stream-module` with `ngx_cache_purge` means you can have your proxy/cache listen for cache-invalidation messages via lightweight `EventSource` or `WebSocket` streams, notify it when particular cached resources need re-fetching, and have it mark given resources stale with a simple HTTP `PURGE` to their specific URLs.
+- Running dynamic apps with real-time messaging is pretty likely to need some content caching. Having the `push-stream-module` and `ngx_cache_purge` modules in your web & app servers helps make this pretty flexible.
 
 #### How do I use it?
 
