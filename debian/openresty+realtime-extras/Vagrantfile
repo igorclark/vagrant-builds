@@ -26,7 +26,7 @@ Vagrant.configure(VAGRANTFILE_API_VERSION) do |config|
         s.inline = "sudo sed -i '/tty/!s/mesg n/tty -s \\&\\& mesg n/' /root/.profile"
     end
 
-    openresty.vm.provision :shell, path: "bootstrap-scripts/install-openresty+push-stream"
+    openresty.vm.provision :shell, path: "bootstrap-scripts/install-openresty+realtime-extras"
   end
 
   # Disable automatic box update checking. If you disable this, then
