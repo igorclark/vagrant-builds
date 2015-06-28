@@ -194,8 +194,11 @@ cd ${OPENRESTY_LOCAL_NGX_DIR}
 --with-cc-opt='-g -O2 -fstack-protector --param=ssp-buffer-size=4 -Wformat -Werror=format-security -D_FORTIFY_SOURCE=2' \
 --with-ld-opt=-Wl,-z,relro \
 --with-luajit \
+<<<<<<< HEAD:debian/openresty+realtime-extras/bootstrap-scripts/install-openresty+realtime-extras
 --with-pcre=../../pcre-8.36 \
 --with-pcre-jit \
+=======
+>>>>>>> 59a7bdbbecc15067184e0da5625a8a46dbb94942:debian/openresty+realtime-extras/bootstrap-scripts/install-openresty+realtime-extras
 --with-http_dav_module \
 --prefix=/usr/share/nginx \
 --conf-path=/etc/nginx/nginx.conf \
