@@ -44,7 +44,7 @@ It boots up and runs `bootstrap-scripts/install-openresty+realtime-extras` as a 
 
 - installs the debian package `nginx-common`, to take advantage of all the extremely nice config & packaging the debian folks have done for their `nginx` packages
 
-- pulls down the latest tagged versions of `ngx_openresty`, `nginx-push-stream-module` and `ngx_cache_purge`
+- pulls down the latest tagged versions of `ngx_openresty`, `nginx-push-stream-module` and `ngx_cache_purge` (along with the 8.x/v1 branch of `libpcre` source so as to build `openresty`/`nginx` using `--with-pcre-jit`)
 
 - hacks the `nginx-push-stream-module` and `ngx_cache_purge` code into `ngx_openresty`'s configure/build scripts (using `sed`, mmm brittle)
 
