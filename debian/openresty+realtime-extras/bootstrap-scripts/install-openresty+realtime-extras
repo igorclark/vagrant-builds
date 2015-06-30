@@ -1,7 +1,7 @@
 #!/bin/bash
 set -euo pipefail
 
-
+#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#
 
 ### make info messages hi-vis
 
@@ -10,13 +10,13 @@ info_msg () {
 	tput sgr0
 }
 
-
+#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#
 
 ### get started
 
 info_msg "##### setting up openresty/nginx + push-stream module #####"
 
-
+#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#
 
 ### update OS stuff
 
@@ -26,18 +26,15 @@ deb http://ftp.uk.debian.org/debian wheezy-backports main
 deb-src http://ftp.uk.debian.org/debian wheezy-backports main
 EOF
 
-
 info_msg "===== getting debian keyring packages"
 info_msg "apt-get install -y debian-keyring debian-archive-keyring"
 apt-get install -y debian-keyring debian-archive-keyring
-
-
 
 info_msg "===== updating system package list with wheezy-backports"
 info_msg "apt-get -o Acquire::Check-Valid-Until=false update"
 apt-get -o Acquire::Check-Valid-Until=false update
 
-
+#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#
 
 ### install useful stuff
 
@@ -45,7 +42,7 @@ info_msg "===== installing useful tools"
 info_msg "apt-get install -y jq"
 apt-get install -y jq
 
-
+#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#
 
 ### install openresty/nginx stuff
 
@@ -57,7 +54,7 @@ info_msg "===== installing debian nginx files"
 info_msg "apt-get install -y nginx-common"
 apt-get install -y nginx-common
 
-
+#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#
 
 ### install FPM meta-packager | https://github.com/jordansissel/fpm
 
@@ -68,7 +65,7 @@ info_msg "===== installing fpm"
 info_msg "gem install fpm"
 gem install fpm
 
-
+#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#
 
 # get PCRE library to enable JIT compiler in nginx/ngx_lua
 
@@ -81,7 +78,7 @@ tar jxf ${PCRE_VERSION}.tar.bz2
 info_msg "checking for ${PCRE_VERSION}..."
 ls -ld ${PCRE_VERSION}
 
-
+#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#
 
 ### kick off openresty install | http://openresty.org/
 
@@ -103,7 +100,7 @@ info_msg "===== changing to ${OPENRESTY_GITHUB_USER} directory"
 cd ${OPENRESTY_GITHUB_PACKAGE_NAME}
 ls -l
 
-
+#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#
 
 ### get info for push-stream-module | https://github.com/wandenberg/nginx-push-stream-module
 
@@ -116,8 +113,6 @@ NPSM_GITHUB_TARBALL_URL=$(echo "${NPSM_GITHUB_INFO}"| jq -r '.[0].tarball_url')
 NPSM_GITHUB_COMMIT_STRING=$(echo "${NPSM_GITHUB_INFO}" | jq -r '.[0].commit.sha[0:7]')
 NPSM_GITHUB_PACKAGE_NAME="${NPSM_GITHUB_USER}-${NPSM_GITHUB_PROJECT}-${NPSM_GITHUB_COMMIT_STRING}"
 
-
-
 ### add push-stream-module to the openresty build system
 
 ESCAPED_NPSM_GITHUB_TARBALL_URL=$(echo "${NPSM_GITHUB_TARBALL_URL}" | sed 's/\//\\\//g')
@@ -127,7 +122,7 @@ OPENRESTY_NPSM_TARBALL_NAME="${OPENRESTY_NPSM_PACKAGE_NAME}.tar.gz"
 info_msg "===== adding push-stream-module to the ${OPENRESTY_GITHUB_PROJECT} 'mirror-tarballs' script"
 sed "s/\(^.* \*\.tar\.gz$\)/ver=${NPSM_GITHUB_VERSION}\n\$root\/util\/get-tarball \"${ESCAPED_NPSM_GITHUB_TARBALL_URL}\" -O \"${OPENRESTY_NPSM_TARBALL_NAME}\" || exit 1\ntar -xzf ${OPENRESTY_NPSM_TARBALL_NAME} || exit 1\nmv ${NPSM_GITHUB_PACKAGE_NAME} ${OPENRESTY_NPSM_PACKAGE_NAME} || exit 1\n\n#################################\n\n\1/g" -i util/mirror-tarballs
 
-
+#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#
 
 ### get info for cache purge module | https://github.com/FRiCKLE/ngx_cache_purge
 
@@ -140,8 +135,6 @@ NCPM_GITHUB_TARBALL_URL=$(echo "${NCPM_GITHUB_INFO}"| jq -r '.[0].tarball_url')
 NCPM_GITHUB_COMMIT_STRING=$(echo "${NCPM_GITHUB_INFO}" | jq -r '.[0].commit.sha[0:7]')
 NCPM_GITHUB_PACKAGE_NAME="${NCPM_GITHUB_USER}-${NCPM_GITHUB_PROJECT}-${NCPM_GITHUB_COMMIT_STRING}"
 
-
-
 ### add  cache purge module to the openresty build system
 
 ESCAPED_NCPM_GITHUB_TARBALL_URL=$(echo "${NCPM_GITHUB_TARBALL_URL}" | sed 's/\//\\\//g')
@@ -151,14 +144,14 @@ OPENRESTY_NCPM_TARBALL_NAME="${OPENRESTY_NCPM_PACKAGE_NAME}.tar.gz"
 info_msg "===== adding cache purge module to the ${OPENRESTY_GITHUB_PROJECT} 'mirror-tarballs' script"
 sed "s/\(^.* \*\.tar\.gz$\)/ver=${NCPM_GITHUB_VERSION}\n\$root\/util\/get-tarball \"${ESCAPED_NCPM_GITHUB_TARBALL_URL}\" -O \"${OPENRESTY_NCPM_TARBALL_NAME}\" || exit 1\ntar -xzf ${OPENRESTY_NCPM_TARBALL_NAME} || exit 1\nmv ${NCPM_GITHUB_PACKAGE_NAME} ${OPENRESTY_NCPM_PACKAGE_NAME} || exit 1\n\n#################################\n\n\1/g" -i util/mirror-tarballs
 
-
+#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#
 
 ### pull in openresty packages
 
 info_msg "===== building ${OPENRESTY_GITHUB_PROJECT}-${OPENRESTY_GITHUB_COMMIT_STRING}/${OPENRESTY_GITHUB_VERSION} (= pre-build, pull down bundle) ..."
 make
 
-
+#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#
 
 ### add ngx_cache_purge & nginx-push-stream-module into openresty configure script
 ### values in key-value pairs http_k_k => http_v_v are names of github projects
@@ -171,6 +164,7 @@ sed \
 	-e "s/\(^ *\)\(\[http_rds_csv => 'rds-csv-nginx-module'\],$\)/\1\2\n\1[http_push_stream => 'nginx-push-stream-module'],\n\1[http_cache_purge => 'ngx_cache_purge'],/g" \
 	-i ${OPENRESTY_LOCAL_NGX_DIR}/configure
 
+#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#
 
 ### patch nginx src to have a longer NGX_MAX_ERROR_STR
 ### so that apps / neo proxy cache can log more detailed info
@@ -179,11 +173,12 @@ NGX_MAX_ERROR_STR=8192
 info_msg "===== patching nginx to have NGX_MAX_ERROR_STR = ${NGX_MAX_ERROR_STR} to have longer error log messages"
 pushd ${OPENRESTY_LOCAL_NGX_DIR}/bundle/nginx-[0-9\.]*
 sed "s/\(#define NGX_MAX_ERROR_STR *\)4096/\1\t${NGX_MAX_ERROR_STR}/g" -i src/core/ngx_log.h
+# fix vim coloring with an errant "
 info_msg "----- checking for NGX_MAX_ERROR_STR"
 fgrep "define NGX_MAX_ERROR_STR" src/core/ngx_log.h
 popd
 
-
+#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#
 
 ### run openresty configure script, using choice configure options from 'nginx -V' in debian nginx package
 ### so we can take advantage of the very lovely init script and conf/packaging work the debian folks have done
@@ -194,11 +189,8 @@ cd ${OPENRESTY_LOCAL_NGX_DIR}
 --with-cc-opt='-g -O2 -fstack-protector --param=ssp-buffer-size=4 -Wformat -Werror=format-security -D_FORTIFY_SOURCE=2' \
 --with-ld-opt=-Wl,-z,relro \
 --with-luajit \
-<<<<<<< HEAD:debian/openresty+realtime-extras/bootstrap-scripts/install-openresty+realtime-extras
 --with-pcre=../../pcre-8.36 \
 --with-pcre-jit \
-=======
->>>>>>> 59a7bdbbecc15067184e0da5625a8a46dbb94942:debian/openresty+realtime-extras/bootstrap-scripts/install-openresty+realtime-extras
 --with-http_dav_module \
 --prefix=/usr/share/nginx \
 --conf-path=/etc/nginx/nginx.conf \
@@ -222,7 +214,7 @@ cd ${OPENRESTY_LOCAL_NGX_DIR}
 --with-http_gzip_static_module \
 --with-http_sub_module
 
-
+#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#
 
 ### build & install openresty
 ### - package created by FPM will be openresty_<version>+push-stream-<version>_<arch>.deb
@@ -234,24 +226,45 @@ make
 info_msg "===== installing ${LOCAL_OPENRESTY_PACKAGE_NAME}"
 make install
 
-
+#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#
 
 ### set up necessary files for .deb package
 
-info_msg "===== pointing nginx-common init script to openresty"
-ln -s /usr/share/nginx/nginx/sbin/nginx /usr/sbin/nginx
+# custom init script with paths pointing to .deb versions
+info_msg "===== creating custom init script"
+SYSTEM_INIT_DIR=/etc/init.d
+SYSTEM_INIT_FILE=${SYSTEM_INIT_DIR}/nginx
+NGINX_ETC_DIR=/usr/share/nginx/etc
+NGINX_INIT_DIR=${NGINX_ETC_DIR}/init.d
+NGINX_INIT_FILE=${NGINX_INIT_DIR}/nginx
+mkdir -p ${NGINX_INIT_DIR}
+sed \
+	-e 's/^PATH=\(.*\)/PATH=\/usr\/share\/nginx\/nginx\/sbin:\1/g' \
+	-e 's/^DAEMON=\(.*\)/DAEMON=\/usr\/share\/nginx\/nginx\/sbin\/nginx/g' \
+	< ${SYSTEM_INIT_FILE} \
+	> ${NGINX_INIT_FILE}
 
+# create after-install script for .deb file
+# replaces standard nginx init script from
+# 'nginx-common' with a susbsitute version
+# identical except for paths modified as above
+AFTER_INSTALL_SCRIPT=${NGINX_ETC_DIR}/create-init-symlink
+cat > ${AFTER_INSTALL_SCRIPT} <<EOF
+rm ${SYSTEM_INIT_FILE}
+ln -s ${NGINX_INIT_FILE} ${SYSTEM_INIT_FILE}
+EOF
 
+#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#
 
-### build the package
+### build the .deb package
 
 FPM_OPENRESTY_PACKAGE_VERSION=${LOCAL_OPENRESTY_PACKAGE_VERSION}+realtime-extras-vbox
-FPM_OPENRESTY_FILE_PATHS="/usr/share/nginx/bin /usr/share/nginx/luajit /usr/share/nginx/lualib /usr/share/nginx/nginx /usr/sbin/nginx"
+FPM_OPENRESTY_FILE_PATHS="/usr/share/nginx/etc /usr/share/nginx/bin /usr/share/nginx/luajit /usr/share/nginx/lualib /usr/share/nginx/nginx"
 info_msg "===== building .deb package for ${OPENRESTY_GITHUB_USER}/${FPM_OPENRESTY_PACKAGE_VERSION}"
-info_msg "fpm -s dir -t deb -d 'nginx-common' -n ${OPENRESTY_GITHUB_USER} -v ${FPM_OPENRESTY_PACKAGE_VERSION} ${FPM_OPENRESTY_FILE_PATHS}"
-fpm -s dir -t deb -d 'nginx-common' -n ${OPENRESTY_GITHUB_USER} -v ${FPM_OPENRESTY_PACKAGE_VERSION} ${FPM_OPENRESTY_FILE_PATHS}
+info_msg "fpm -s dir -t deb -d 'nginx-common' -n ${OPENRESTY_GITHUB_USER} -v ${FPM_OPENRESTY_PACKAGE_VERSION} --after-install ${AFTER_INSTALL_SCRIPT} ${FPM_OPENRESTY_FILE_PATHS}"
+fpm -s dir -t deb -d 'nginx-common' -n ${OPENRESTY_GITHUB_USER} -v ${FPM_OPENRESTY_PACKAGE_VERSION} --after-install ${AFTER_INSTALL_SCRIPT} ${FPM_OPENRESTY_FILE_PATHS}
 
-
+#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#
 
 ### get on the home straight
 
@@ -260,7 +273,7 @@ mv ${OPENRESTY_GITHUB_USER}_*.deb /vagrant
 info_msg "ls -l /vagrant"
 ls -l /vagrant
 
-
+#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#
 
 ### happy happy joy joy
 
