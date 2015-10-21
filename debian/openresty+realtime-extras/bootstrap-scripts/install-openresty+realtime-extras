@@ -19,11 +19,11 @@ info_msg "##### setting up openresty/nginx + push-stream module #####"
 #=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#
 
 ### set google DNS resolver to avoid slow-DNS-forwarding pain
-info_msg "adding google DNS resolver inside VM"
+info_msg "===== adding google DNS resolver inside VM"
 sed \
 	-e 's/^nameserver .*/nameserver 8.8.8.8/g' \
 	-i /etc/resolv.conf
-info_msg "checking for google DNS resolver"
+info_msg "----- checking for google DNS resolver"
 fgrep nameserver /etc/resolv.conf
 
 #=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#
@@ -169,6 +169,7 @@ make -j 4
 ### add ngx_cache_purge & nginx-push-stream-module into openresty configure script
 ### values in key-value pairs http_k_k => http_v_v are names of github projects
 ### ie nginx-push-stream-module, ngx_cache_purge
+### super brittle, mmm
 
 LOCAL_OPENRESTY_PACKAGE_VERSION=$(echo "${OPENRESTY_GITHUB_VERSION}" | sed -e 's/^v//g')
 OPENRESTY_LOCAL_NGX_DIR="${OPENRESTY_GITHUB_PROJECT}-${LOCAL_OPENRESTY_PACKAGE_VERSION}"
@@ -180,7 +181,7 @@ sed \
 #=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#
 
 ### patch nginx src to have a longer NGX_MAX_ERROR_STR
-### so that apps / neo proxy cache can log more detailed info
+### so that apps can log more detailed info
 
 NGX_MAX_ERROR_STR=8192
 info_msg "===== patching nginx to have NGX_MAX_ERROR_STR = ${NGX_MAX_ERROR_STR} to have longer error log messages"
@@ -189,6 +190,20 @@ sed "s/\(#define NGX_MAX_ERROR_STR *\)4096/\1\t${NGX_MAX_ERROR_STR}/g" -i src/co
 # fix vim coloring with an errant "
 info_msg "----- checking for NGX_MAX_ERROR_STR"
 fgrep "define NGX_MAX_ERROR_STR" src/core/ngx_log.h
+popd
+
+#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#
+
+### patch nginx src to include https://github.com/openresty/lua-nginx-module/commit/b948841c0
+### so that subrequests to WebDAV locations send correct headers
+
+info_msg "===== patching nginx so that DAV subrequests send correct headers"
+pushd ${OPENRESTY_LOCAL_NGX_DIR}/bundle/ngx_lua-[0-9\.]*
+set +e
+patch -p1 < /vagrant/patches/ngx_lua/0001-bugfix-setting-builtin-request-headers-Depth-Destina.patch
+set -e
+info_msg "----- checking for DAV subrequest patch"
+fgrep -A 2 Destination src/ngx_http_lua_headers_in.c
 popd
 
 #=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#
