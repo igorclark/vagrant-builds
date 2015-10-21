@@ -18,6 +18,16 @@ info_msg "##### setting up openresty/nginx + push-stream module #####"
 
 #=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#
 
+### set google DNS resolver to avoid slow-DNS-forwarding pain
+info_msg "adding google DNS resolver inside VM"
+sed \
+	-e 's/^nameserver .*/nameserver 8.8.8.8/g' \
+	-i /etc/resolv.conf
+info_msg "checking for google DNS resolver"
+fgrep nameserver /etc/resolv.conf
+
+#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#
+
 ### update OS stuff
 
 info_msg "===== getting wheezy-backports apt sources list"
@@ -26,13 +36,13 @@ deb http://ftp.uk.debian.org/debian wheezy-backports main
 deb-src http://ftp.uk.debian.org/debian wheezy-backports main
 EOF
 
-info_msg "===== getting debian keyring packages"
-info_msg "apt-get install -y debian-keyring debian-archive-keyring"
-apt-get install -y debian-keyring debian-archive-keyring
-
 info_msg "===== updating system package list with wheezy-backports"
 info_msg "apt-get -o Acquire::Check-Valid-Until=false update"
 apt-get -o Acquire::Check-Valid-Until=false update
+
+info_msg "===== getting debian keyring packages"
+info_msg "apt-get install -y debian-keyring debian-archive-keyring"
+apt-get install -y debian-keyring debian-archive-keyring
 
 #=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#
 
@@ -69,7 +79,7 @@ gem install fpm
 
 # get PCRE library to enable JIT compiler in nginx/ngx_lua
 
-PCRE_VERSION=pcre-8.36
+PCRE_VERSION=pcre-8.37
 info_msg "----- downloading PCRE library"
 info_msg "curl -L -O ftp://ftp.csx.cam.ac.uk/pub/software/programming/pcre/${PCRE_VERSION}.tar.bz2"
 curl -L -O ftp://ftp.csx.cam.ac.uk/pub/software/programming/pcre/${PCRE_VERSION}.tar.bz2
@@ -85,7 +95,10 @@ ls -ld ${PCRE_VERSION}
 OPENRESTY_GITHUB_USER='openresty'
 OPENRESTY_GITHUB_PROJECT='ngx_openresty'
 info_msg "===== getting github project info for ${OPENRESTY_GITHUB_USER}/${OPENRESTY_GITHUB_PROJECT} latest version"
-OPENRESTY_GITHUB_INFO=$(curl https://api.github.com/repos/${OPENRESTY_GITHUB_USER}/${OPENRESTY_GITHUB_PROJECT}/tags 2>/dev/null)
+# get all the tags
+OPENRESTY_GITHUB_RESPONSE=$(curl https://api.github.com/repos/${OPENRESTY_GITHUB_USER}/${OPENRESTY_GITHUB_PROJECT}/tags 2>/dev/null)
+# strip out release candidate
+OPENRESTY_GITHUB_INFO=$(echo "${OPENRESTY_GITHUB_RESPONSE}"| jq -r '. - map(select(.name|endswith("rc1")))')
 OPENRESTY_GITHUB_VERSION=$(echo "${OPENRESTY_GITHUB_INFO}"| jq -r '.[0].name')
 OPENRESTY_GITHUB_TARBALL_URL=$(echo "${OPENRESTY_GITHUB_INFO}"| jq -r '.[0].tarball_url')
 OPENRESTY_GITHUB_COMMIT_STRING=$(echo "${OPENRESTY_GITHUB_INFO}" | jq -r '.[0].commit.sha[0:7]')
@@ -149,7 +162,7 @@ sed "s/\(^.* \*\.tar\.gz$\)/ver=${NCPM_GITHUB_VERSION}\n\$root\/util\/get-tarbal
 ### pull in openresty packages
 
 info_msg "===== building ${OPENRESTY_GITHUB_PROJECT}-${OPENRESTY_GITHUB_COMMIT_STRING}/${OPENRESTY_GITHUB_VERSION} (= pre-build, pull down bundle) ..."
-make
+make -j 4
 
 #=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#
 
@@ -189,7 +202,7 @@ cd ${OPENRESTY_LOCAL_NGX_DIR}
 --with-cc-opt='-g -O2 -fstack-protector --param=ssp-buffer-size=4 -Wformat -Werror=format-security -D_FORTIFY_SOURCE=2' \
 --with-ld-opt=-Wl,-z,relro \
 --with-luajit \
---with-pcre=../../pcre-8.36 \
+--with-pcre=../../${PCRE_VERSION} \
 --with-pcre-jit \
 --with-http_dav_module \
 --prefix=/usr/share/nginx \
@@ -221,7 +234,7 @@ cd ${OPENRESTY_LOCAL_NGX_DIR}
 
 LOCAL_OPENRESTY_PACKAGE_NAME="${OPENRESTY_GITHUB_PROJECT}-${LOCAL_OPENRESTY_PACKAGE_VERSION}+${NPSM_GITHUB_PROJECT}"
 info_msg "===== building ${LOCAL_OPENRESTY_PACKAGE_NAME}"
-make
+make -j 4
 
 info_msg "===== installing ${LOCAL_OPENRESTY_PACKAGE_NAME}"
 make install
@@ -251,6 +264,7 @@ sed \
 AFTER_INSTALL_SCRIPT=${NGINX_ETC_DIR}/create-init-symlink
 cat > ${AFTER_INSTALL_SCRIPT} <<EOF
 rm ${SYSTEM_INIT_FILE}
+chmod +x ${NGINX_INIT_FILE}
 ln -s ${NGINX_INIT_FILE} ${SYSTEM_INIT_FILE}
 EOF
 
