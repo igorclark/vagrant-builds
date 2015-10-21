@@ -4,7 +4,6 @@ set -euo pipefail
 #=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#
 
 ### make info messages hi-vis
-
 info_msg () {
 	echo -e '\E[37;44m'"\033[1m::::: "$1"\033[0m"
 	tput sgr0
@@ -19,6 +18,7 @@ info_msg "##### setting up openresty/nginx + push-stream module #####"
 #=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#
 
 ### set google DNS resolver to avoid slow-DNS-forwarding pain
+
 info_msg "===== adding google DNS resolver inside VM"
 sed \
 	-e 's/^nameserver .*/nameserver 8.8.8.8/g' \
@@ -77,9 +77,16 @@ gem install fpm
 
 #=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#
 
-# get PCRE library to enable JIT compiler in nginx/ngx_lua
+# get latest PCRE library v1 branch release, to enable pcre-JIT compiler in nginx/ngx_lua
 
-PCRE_VERSION=pcre-8.37
+PCRE_VERSION=$(\
+	curl ftp://ftp.csx.cam.ac.uk/pub/software/programming/pcre/ 2>/dev/null \
+	| awk '{print $9}' \
+	| egrep '^pcre-.*bz2$' \
+	| tail -1 \
+	| sed 's/.tar.bz2$//g' \
+	| tr -d '\n'\
+)
 info_msg "----- downloading PCRE library"
 info_msg "curl -L -O ftp://ftp.csx.cam.ac.uk/pub/software/programming/pcre/${PCRE_VERSION}.tar.bz2"
 curl -L -O ftp://ftp.csx.cam.ac.uk/pub/software/programming/pcre/${PCRE_VERSION}.tar.bz2
