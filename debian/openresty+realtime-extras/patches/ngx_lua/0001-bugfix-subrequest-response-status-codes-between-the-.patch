@@ -1,0 +1,117 @@
+From 4a9d4b11fb42db7202f4ca7107e79effb549e59d Mon Sep 17 00:00:00 2001
+From: "Yichun Zhang (agentzh)" <agentzh@gmail.com>
+Date: Fri, 30 Oct 2015 15:16:09 +0800
+Subject: [PATCH] bugfix: subrequest response status codes between the range
+ 100 .. 299 (inclusive) might get lost in the return values of
+ ngx.location.capture*() calls. thanks Igor Clark for the report.
+
+---
+ src/ngx_http_lua_subrequest.c |  2 +-
+ t/020-subrequest.t            | 74 +++++++++++++++++++++++++++++++++++++++++++
+ 2 files changed, 75 insertions(+), 1 deletion(-)
+
+diff --git a/src/ngx_http_lua_subrequest.c b/src/ngx_http_lua_subrequest.c
+index 49150aa..4ac801b 100644
+--- a/src/ngx_http_lua_subrequest.c
++++ b/src/ngx_http_lua_subrequest.c
+@@ -1004,7 +1004,7 @@ ngx_http_lua_post_subrequest(ngx_http_request_t *r, void *data, ngx_int_t rc)
+             rc = NGX_HTTP_INTERNAL_SERVER_ERROR;
+         }
+ 
+-        if (rc >= NGX_HTTP_SPECIAL_RESPONSE) {
++        if (rc >= 100) {
+             pr_coctx->sr_statuses[ctx->index] = rc;
+         }
+     }
+diff --git a/t/020-subrequest.t b/t/020-subrequest.t
+index 6773c5c..21e728d 100644
+--- a/t/020-subrequest.t
++++ b/t/020-subrequest.t
+@@ -8,6 +8,7 @@ use Test::Nginx::Socket::Lua;
+ #log_level('warn');
+ #master_process_enabled(1);
+ 
++no_root_location;
+ repeat_each(2);
+ 
+ plan tests => repeat_each() * (blocks() * 3 + 22);
+@@ -2797,3 +2798,76 @@ image header filter
+ --- no_error_log
+ [error]
+ 
++
++
++=== TEST 75: WebDAV + MOVE
++--- config
++    location = /t {
++        content_by_lua_block {
++            local file1 = "/file1.txt"
++            local file2 = "/file2.txt"
++            ngx.req.set_header( "Destination", file2 )
++            local res = ngx.location.capture(
++                file1, { method = ngx.HTTP_MOVE }
++            )
++
++            ngx.say(
++                "MOVE ", file1, " -> ", file2,
++                ", response status: ", res.status
++            )
++        }
++    }
++
++    location / {
++        dav_methods MOVE;
++    }
++
++--- user_files
++>>> file1.txt
++hello, world!
++
++--- request
++GET /t
++
++--- response_body
++MOVE /file1.txt -> /file2.txt, response status: 204
++
++--- no_error_log
++[error]
++--- error_code: 200
++
++
++
++=== TEST 76: WebDAV + DELETE
++--- config
++    location = /t {
++        content_by_lua_block {
++            local file = "/file.txt"
++            local res = ngx.location.capture(
++                file, { method = ngx.HTTP_DELETE }
++            )
++
++            ngx.say(
++                "DELETE ", file,
++                ", response status: ", res.status
++            )
++        }
++    }
++
++    location / {
++        dav_methods DELETE;
++    }
++
++--- user_files
++>>> file.txt
++hello, world!
++
++--- request
++GET /t
++
++--- response_body
++DELETE /file.txt, response status: 204
++
++--- no_error_log
++[error]
++--- error_code: 200
+-- 
+2.6.2
+
