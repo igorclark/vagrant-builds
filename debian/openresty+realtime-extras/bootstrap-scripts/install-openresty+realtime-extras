@@ -215,6 +215,20 @@ popd
 
 #=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#
 
+### patch nginx src to include https://github.com/openresty/lua-nginx-module/commit/4a9d4b11
+### so that subrequests return correct status codes
+
+info_msg "===== patching nginx so that DAV subrequests return correct status codes"
+pushd ${OPENRESTY_LOCAL_NGX_DIR}/bundle/ngx_lua-[0-9\.]*
+set +e
+patch -p1 < /vagrant/patches/ngx_lua/0001-bugfix-subrequest-response-status-codes-between-the-.patch
+set -e
+info_msg "----- checking for subrequest HTTP response patch"
+fgrep -B 1 -A 1 'pr_coctx->sr_statuses[ctx->index] = rc;' src/ngx_http_lua_subrequest.c
+popd
+
+#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#
+
 ### run openresty configure script, using choice configure options from 'nginx -V' in debian nginx package
 ### so we can take advantage of the very lovely init script and conf/packaging work the debian folks have done
 
