@@ -232,6 +232,9 @@ popd
 ### run openresty configure script, using choice configure options from 'nginx -V' in debian nginx package
 ### so we can take advantage of the very lovely init script and conf/packaging work the debian folks have done
 
+OPENRESTY_INSTALL_PREFIX=/usr/share/openresty
+OPENRESTY_INSTALL_PREFIX_ESCAPED=$(echo ${OPENRESTY_INSTALL_PREFIX} | sed 's/\//\\\//g')
+
 info_msg "configure-ing ${OPENRESTY_LOCAL_NGX_DIR}"
 cd ${OPENRESTY_LOCAL_NGX_DIR}
 ./configure \
@@ -241,7 +244,7 @@ cd ${OPENRESTY_LOCAL_NGX_DIR}
 --with-pcre=../../${PCRE_VERSION} \
 --with-pcre-jit \
 --with-http_dav_module \
---prefix=/usr/share/nginx \
+--prefix=${OPENRESTY_INSTALL_PREFIX} \
 --conf-path=/etc/nginx/nginx.conf \
 --http-log-path=/var/log/nginx/access.log \
 --error-log-path=/var/log/nginx/error.log \
@@ -283,13 +286,13 @@ make install
 info_msg "===== creating custom init script"
 SYSTEM_INIT_DIR=/etc/init.d
 SYSTEM_INIT_FILE=${SYSTEM_INIT_DIR}/nginx
-NGINX_ETC_DIR=/usr/share/nginx/etc
+NGINX_ETC_DIR=${OPENRESTY_INSTALL_PREFIX}/etc
 NGINX_INIT_DIR=${NGINX_ETC_DIR}/init.d
 NGINX_INIT_FILE=${NGINX_INIT_DIR}/nginx
 mkdir -p ${NGINX_INIT_DIR}
 sed \
-	-e 's/^PATH=\(.*\)/PATH=\/usr\/share\/nginx\/nginx\/sbin:\1/g' \
-	-e 's/^DAEMON=\(.*\)/DAEMON=\/usr\/share\/nginx\/nginx\/sbin\/nginx/g' \
+	-e 's/^PATH=\(.*\)/PATH='${OPENRESTY_INSTALL_PREFIX_ESCAPED}'\/nginx\/sbin:\1/g' \
+	-e 's/^DAEMON=\(.*\)/DAEMON='${OPENRESTY_INSTALL_PREFIX_ESCAPED}'\/nginx\/sbin\/nginx/g' \
 	< ${SYSTEM_INIT_FILE} \
 	> ${NGINX_INIT_FILE}
 
@@ -309,10 +312,10 @@ EOF
 ### build the .deb package
 
 FPM_OPENRESTY_PACKAGE_VERSION=${LOCAL_OPENRESTY_PACKAGE_VERSION}+realtime-extras-vbox
-FPM_OPENRESTY_FILE_PATHS="/usr/share/nginx/etc /usr/share/nginx/bin /usr/share/nginx/luajit /usr/share/nginx/lualib /usr/share/nginx/nginx"
+FPM_OPENRESTY_FILE_PATHS="${OPENRESTY_INSTALL_PREFIX}/etc ${OPENRESTY_INSTALL_PREFIX}/bin ${OPENRESTY_INSTALL_PREFIX}/luajit ${OPENRESTY_INSTALL_PREFIX}/lualib ${OPENRESTY_INSTALL_PREFIX}/nginx"
 info_msg "===== building .deb package for ${OPENRESTY_GITHUB_USER}/${FPM_OPENRESTY_PACKAGE_VERSION}"
-info_msg "fpm -s dir -t deb -d 'nginx-common' -n ${OPENRESTY_GITHUB_USER} -v ${FPM_OPENRESTY_PACKAGE_VERSION} --after-install ${AFTER_INSTALL_SCRIPT} ${FPM_OPENRESTY_FILE_PATHS}"
-fpm -s dir -t deb -d 'nginx-common' -n ${OPENRESTY_GITHUB_USER} -v ${FPM_OPENRESTY_PACKAGE_VERSION} --after-install ${AFTER_INSTALL_SCRIPT} ${FPM_OPENRESTY_FILE_PATHS}
+info_msg "fpm -s dir -t deb -d 'nginx-common' -d 'libgeoip1' -n ${OPENRESTY_GITHUB_USER} -v ${FPM_OPENRESTY_PACKAGE_VERSION} --after-install ${AFTER_INSTALL_SCRIPT} ${FPM_OPENRESTY_FILE_PATHS}"
+fpm -s dir -t deb -d 'nginx-common' -d 'libgeoip1' -n ${OPENRESTY_GITHUB_USER} -v ${FPM_OPENRESTY_PACKAGE_VERSION} --after-install ${AFTER_INSTALL_SCRIPT} ${FPM_OPENRESTY_FILE_PATHS}
 
 #=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#
 
