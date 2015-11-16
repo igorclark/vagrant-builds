@@ -49,7 +49,7 @@ It boots up and runs `bootstrap-scripts/install-openresty+realtime-extras` as a 
 
 - installs the debian package `nginx-common`, to take advantage of all the extremely nice config & packaging the debian folks have done for their `nginx` packages
 
-- pulls down the latest tagged versions of `ngx_openresty`, `nginx-push-stream-module`, `ngx_cache_purge`  (along with the latest release of the 8.x/v1 branch of `libpcre` source, so as to build `openresty`/`nginx` using `--with-pcre-jit`)
+- pulls down the latest tagged versions of `ngx_openresty`, `nginx-push-stream-module`, `ngx_cache_purge` and `ngx_http_geoip2_module` (along with the latest release of the 8.x/v1 branch of `libpcre` source, so as to build `openresty`/`nginx` using `--with-pcre-jit`)
 
 - hacks the `nginx-push-stream-module`, `ngx_cache_purge` and `ngx_http_geoip2_module` code into `ngx_openresty`'s configure/build scripts (using `sed`, mmm brittle)
 
@@ -57,7 +57,7 @@ It boots up and runs `bootstrap-scripts/install-openresty+realtime-extras` as a 
 
 - symlinks the `/usr/share/nginx/nginx/sbin/nginx` binary at `/usr/sbin/nginx`, so the debian `nginx` boot script `/etc/init.d/nginx` can point to it without any modification
  
-- packages up the `openresty` and `libmaxminddb` installations (in `/usr/share/nginx` and `/usr/share/maxmind`), the `nginx` boot script (`/etc/init.d/nginx`) into a debian `.deb` file using [FPM](https://github.com/jordansissel/fpm), with a post-install script setting up the boot script and runing `ldconfig` to link `nginx` with the `libmaxminddb` libs
+- packages up the `openresty` and `libmaxminddb` installations (in `/usr/share/nginx` and `/usr/share/maxmind`) along with the `nginx` boot script (`/etc/init.d/nginx`) into a debian `.deb` file using [FPM](https://github.com/jordansissel/fpm), with a post-install script setting up the boot script and running `ldconfig` to link `nginx` with the `libmaxminddb` libs
 
 - drops the `.deb` file into the `/vagrant` share on the VM so that it shows up in your Vagrant working directory
 
