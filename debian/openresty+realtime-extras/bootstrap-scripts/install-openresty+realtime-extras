@@ -267,10 +267,6 @@ OPENRESTY_INSTALL_PREFIX=/usr/share/openresty
 OPENRESTY_INSTALL_PREFIX_ESCAPED=$(echo ${OPENRESTY_INSTALL_PREFIX} | sed 's/\//\\\//g')
 
 info_msg "===== configure-ing ${OPENRESTY_LOCAL_NGX_DIR} (with LD_LIBRARY_PATH=${MAXMIND_LIB_PATH}, -I${MAXMIND_INC_PATH})"
-echo !!! ${MAXMIND_LIB_PATH}
-echo !!! ${MAXMIND_INC_PATH}
-echo !!! ${PCRE_VERSION}
-echo !!! ${OPENRESTY_INSTALL_PREFIX}
 cd ${OPENRESTY_LOCAL_NGX_DIR}
 /usr/bin/env LD_LIBRARY_PATH=${MAXMIND_LIB_PATH} ./configure \
 --with-cc-opt="-g -O2 -fstack-protector --param=ssp-buffer-size=4 -Wformat -Werror=format-security -D_FORTIFY_SOURCE=2 -I${MAXMIND_INC_PATH}" \
@@ -306,7 +302,7 @@ cd ${OPENRESTY_LOCAL_NGX_DIR}
 ### build & install openresty
 ### - package created by FPM will be openresty_<version>+push-stream-<version>_<arch>.deb
 
-LOCAL_OPENRESTY_PACKAGE_NAME="${OPENRESTY_GITHUB_PROJECT}-${LOCAL_OPENRESTY_PACKAGE_VERSION}+realtime-extras"
+LOCAL_OPENRESTY_PACKAGE_NAME="${OPENRESTY_GITHUB_PROJECT}-${LOCAL_OPENRESTY_PACKAGE_VERSION}+realtime-geoip2"
 info_msg "===== building ${LOCAL_OPENRESTY_PACKAGE_NAME}"
 make -j "$(( $(cat /proc/cpuinfo | egrep ^processor | wc -l) + 1))"
 
@@ -349,7 +345,7 @@ EOF
 
 ### build the .deb package
 
-FPM_OPENRESTY_PACKAGE_VERSION=${LOCAL_OPENRESTY_PACKAGE_VERSION}+realtime-extras-vbox
+FPM_OPENRESTY_PACKAGE_VERSION=${LOCAL_OPENRESTY_PACKAGE_VERSION}+realtime-geoip2-vbox
 FPM_OPENRESTY_FILE_PATHS="${MAXMIND_INSTALL_PATH} ${OPENRESTY_INSTALL_PREFIX}/etc ${OPENRESTY_INSTALL_PREFIX}/bin ${OPENRESTY_INSTALL_PREFIX}/luajit ${OPENRESTY_INSTALL_PREFIX}/lualib ${OPENRESTY_INSTALL_PREFIX}/nginx"
 info_msg "===== building .deb package for ${OPENRESTY_GITHUB_USER}/${FPM_OPENRESTY_PACKAGE_VERSION}"
 info_msg "fpm -s dir -t deb -d 'nginx-common' -n ${OPENRESTY_GITHUB_USER} -v ${FPM_OPENRESTY_PACKAGE_VERSION} --after-install ${AFTER_INSTALL_SCRIPT} ${FPM_OPENRESTY_FILE_PATHS}"
