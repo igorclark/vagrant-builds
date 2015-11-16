@@ -243,6 +243,7 @@ cd ${OPENRESTY_LOCAL_NGX_DIR}
 --with-luajit \
 --with-pcre=../../${PCRE_VERSION} \
 --with-pcre-jit \
+--with-pcre-conf-opt="--enable-unicode-properties" \
 --with-http_dav_module \
 --prefix=${OPENRESTY_INSTALL_PREFIX} \
 --conf-path=/etc/nginx/nginx.conf \
