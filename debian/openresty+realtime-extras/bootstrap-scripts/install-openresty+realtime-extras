@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 set -euo pipefail
 
 #=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#
@@ -7,6 +7,37 @@ set -euo pipefail
 info_msg () {
 	echo -e '\E[37;44m'"\033[1m::::: "$1"\033[0m"
 	tput sgr0
+}
+
+#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#
+
+# add a module into openresty build system
+add_custom_nginx_module () {
+
+	### get module info from function params
+
+	MODULE_GITHUB_USER="$1"
+	MODULE_GITHUB_PROJECT="$2"
+	OPENRESTY_WORKING_DIRECTORY="$3"
+
+	### get info for specified module
+
+	info_msg "===== getting github project info for ${MODULE_GITHUB_USER}/${MODULE_GITHUB_PROJECT} latest version"
+	MODULE_GITHUB_INFO=$(curl https://api.github.com/repos/${MODULE_GITHUB_USER}/${MODULE_GITHUB_PROJECT}/tags 2>/dev/null)
+	MODULE_GITHUB_VERSION=$(echo "${MODULE_GITHUB_INFO}"| jq -r '.[0].name')
+	MODULE_GITHUB_TARBALL_URL=$(echo "${MODULE_GITHUB_INFO}"| jq -r '.[0].tarball_url')
+	MODULE_GITHUB_COMMIT_STRING=$(echo "${MODULE_GITHUB_INFO}" | jq -r '.[0].commit.sha[0:7]')
+	MODULE_GITHUB_PACKAGE_NAME="${MODULE_GITHUB_USER}-${MODULE_GITHUB_PROJECT}-${MODULE_GITHUB_COMMIT_STRING}"
+
+	### add specified module to the openresty build system
+
+	ESCAPED_MODULE_GITHUB_TARBALL_URL=$(echo "${MODULE_GITHUB_TARBALL_URL}" | sed 's/\//\\\//g')
+	OPENRESTY_MODULE_PACKAGE_NAME="${MODULE_GITHUB_PROJECT}-${MODULE_GITHUB_VERSION}"
+	OPENRESTY_MODULE_TARBALL_NAME="${OPENRESTY_MODULE_PACKAGE_NAME}.tar.gz"
+
+	info_msg "===== adding ${MODULE_GITHUB_PROJECT} to the ${OPENRESTY_GITHUB_PROJECT} 'mirror-tarballs' script"
+	sed "s/\(^.* \*\.tar\.gz$\)/ver=${MODULE_GITHUB_VERSION}\n\$root\/util\/get-tarball \"${ESCAPED_MODULE_GITHUB_TARBALL_URL}\" -O \"${OPENRESTY_MODULE_TARBALL_NAME}\" || exit 1\ntar -xzf ${OPENRESTY_MODULE_TARBALL_NAME} || exit 1\nmv ${MODULE_GITHUB_PACKAGE_NAME} ${OPENRESTY_MODULE_PACKAGE_NAME} || exit 1\n\n#################################\n\n\1/g" -i ${OPENRESTY_WORKING_DIRECTORY}/util/mirror-tarballs
+
 }
 
 #=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#
@@ -57,12 +88,30 @@ apt-get install -y jq
 ### install openresty/nginx stuff
 
 info_msg "===== installing openresty prerequisites"
-info_msg "apt-get install -y init-system-helpers build-essential libreadline-dev libncurses5-dev libssl-dev perl make libgeoip1 libgeoip-dev"
-apt-get install -y init-system-helpers build-essential libreadline-dev libncurses5-dev libssl-dev perl make libgeoip1 libgeoip-dev
+info_msg "apt-get install -y init-system-helpers build-essential libreadline-dev libncurses5-dev libssl-dev perl make"
+apt-get install -y init-system-helpers build-essential libreadline-dev libncurses5-dev libssl-dev perl make
 
 info_msg "===== installing debian nginx files"
 info_msg "apt-get install -y nginx-common"
 apt-get install -y nginx-common
+
+#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#
+
+### install maxmind db
+info_msg "===== installing maxmind db library"
+MAXMIND_INSTALL_PATH=/usr/share/maxmind
+MAXMIND_LIB_PATH=${MAXMIND_INSTALL_PATH}/lib
+MAXMIND_INC_PATH=${MAXMIND_INSTALL_PATH}/include
+curl -OL https://github.com/maxmind/libmaxminddb/releases/download/1.1.2/libmaxminddb-1.1.2.tar.gz
+tar xzf libmaxminddb-1.1.2.tar.gz
+pushd libmaxminddb-1.1.2
+./configure --prefix=${MAXMIND_INSTALL_PATH}
+make
+make install
+info_msg "===== adding maxmind db library to ld.so.conf"
+echo "${MAXMIND_LIB_PATH}" > /etc/ld.so.conf.d/libmaxminddb.conf
+ldconfig -v 2>/dev/null |grep -i maxmind
+popd
 
 #=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#
 
@@ -122,67 +171,49 @@ ls -l
 
 #=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#
 
-### get info for push-stream-module | https://github.com/wandenberg/nginx-push-stream-module
-
-NPSM_GITHUB_USER='wandenberg'
-NPSM_GITHUB_PROJECT='nginx-push-stream-module'
-info_msg "===== getting github project info for ${NPSM_GITHUB_USER}/${NPSM_GITHUB_PROJECT} latest version"
-NPSM_GITHUB_INFO=$(curl https://api.github.com/repos/${NPSM_GITHUB_USER}/${NPSM_GITHUB_PROJECT}/tags 2>/dev/null)
-NPSM_GITHUB_VERSION=$(echo "${NPSM_GITHUB_INFO}"| jq -r '.[0].name')
-NPSM_GITHUB_TARBALL_URL=$(echo "${NPSM_GITHUB_INFO}"| jq -r '.[0].tarball_url')
-NPSM_GITHUB_COMMIT_STRING=$(echo "${NPSM_GITHUB_INFO}" | jq -r '.[0].commit.sha[0:7]')
-NPSM_GITHUB_PACKAGE_NAME="${NPSM_GITHUB_USER}-${NPSM_GITHUB_PROJECT}-${NPSM_GITHUB_COMMIT_STRING}"
-
-### add push-stream-module to the openresty build system
-
-ESCAPED_NPSM_GITHUB_TARBALL_URL=$(echo "${NPSM_GITHUB_TARBALL_URL}" | sed 's/\//\\\//g')
-OPENRESTY_NPSM_PACKAGE_NAME="${NPSM_GITHUB_PROJECT}-${NPSM_GITHUB_VERSION}"
-OPENRESTY_NPSM_TARBALL_NAME="${OPENRESTY_NPSM_PACKAGE_NAME}.tar.gz"
-
-info_msg "===== adding push-stream-module to the ${OPENRESTY_GITHUB_PROJECT} 'mirror-tarballs' script"
-sed "s/\(^.* \*\.tar\.gz$\)/ver=${NPSM_GITHUB_VERSION}\n\$root\/util\/get-tarball \"${ESCAPED_NPSM_GITHUB_TARBALL_URL}\" -O \"${OPENRESTY_NPSM_TARBALL_NAME}\" || exit 1\ntar -xzf ${OPENRESTY_NPSM_TARBALL_NAME} || exit 1\nmv ${NPSM_GITHUB_PACKAGE_NAME} ${OPENRESTY_NPSM_PACKAGE_NAME} || exit 1\n\n#################################\n\n\1/g" -i util/mirror-tarballs
+info_msg "adding custom modules to openresty build"
 
 #=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#
 
-### get info for cache purge module | https://github.com/FRiCKLE/ngx_cache_purge
+###	push-stream-module | https://github.com/wandenberg/nginx-push-stream-module
 
-NCPM_GITHUB_USER='FRiCKLE'
-NCPM_GITHUB_PROJECT='ngx_cache_purge'
-info_msg "===== getting github project info for ${NCPM_GITHUB_USER}/${NCPM_GITHUB_PROJECT} latest version"
-NCPM_GITHUB_INFO=$(curl https://api.github.com/repos/${NCPM_GITHUB_USER}/${NCPM_GITHUB_PROJECT}/tags 2>/dev/null)
-NCPM_GITHUB_VERSION=$(echo "${NCPM_GITHUB_INFO}"| jq -r '.[0].name')
-NCPM_GITHUB_TARBALL_URL=$(echo "${NCPM_GITHUB_INFO}"| jq -r '.[0].tarball_url')
-NCPM_GITHUB_COMMIT_STRING=$(echo "${NCPM_GITHUB_INFO}" | jq -r '.[0].commit.sha[0:7]')
-NCPM_GITHUB_PACKAGE_NAME="${NCPM_GITHUB_USER}-${NCPM_GITHUB_PROJECT}-${NCPM_GITHUB_COMMIT_STRING}"
+PUSH_STREAM_MODULE_NAME="nginx-push-stream-module"
+add_custom_nginx_module "wandenberg" "${PUSH_STREAM_MODULE_NAME}" "$(pwd)"
 
-### add  cache purge module to the openresty build system
+#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#
 
-ESCAPED_NCPM_GITHUB_TARBALL_URL=$(echo "${NCPM_GITHUB_TARBALL_URL}" | sed 's/\//\\\//g')
-OPENRESTY_NCPM_PACKAGE_NAME="${NCPM_GITHUB_PROJECT}-${NCPM_GITHUB_VERSION}"
-OPENRESTY_NCPM_TARBALL_NAME="${OPENRESTY_NCPM_PACKAGE_NAME}.tar.gz"
+###	cache purge module | https://github.com/FRiCKLE/ngx_cache_purge
 
-info_msg "===== adding cache purge module to the ${OPENRESTY_GITHUB_PROJECT} 'mirror-tarballs' script"
-sed "s/\(^.* \*\.tar\.gz$\)/ver=${NCPM_GITHUB_VERSION}\n\$root\/util\/get-tarball \"${ESCAPED_NCPM_GITHUB_TARBALL_URL}\" -O \"${OPENRESTY_NCPM_TARBALL_NAME}\" || exit 1\ntar -xzf ${OPENRESTY_NCPM_TARBALL_NAME} || exit 1\nmv ${NCPM_GITHUB_PACKAGE_NAME} ${OPENRESTY_NCPM_PACKAGE_NAME} || exit 1\n\n#################################\n\n\1/g" -i util/mirror-tarballs
+CACHE_PURGE_MODULE_NAME="ngx_cache_purge"
+add_custom_nginx_module "FRiCKLE" "${CACHE_PURGE_MODULE_NAME}" "$(pwd)"
+
+#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#
+
+###	geoip2 module | https://github.com/leev/ngx_http_geoip2_module
+
+GEOIP2_MODULE_NAME="ngx_http_geoip2_module"
+add_custom_nginx_module "leev" "${GEOIP2_MODULE_NAME}" "$(pwd)"
 
 #=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#
 
 ### pull in openresty packages
 
 info_msg "===== building ${OPENRESTY_GITHUB_PROJECT}-${OPENRESTY_GITHUB_COMMIT_STRING}/${OPENRESTY_GITHUB_VERSION} (= pre-build, pull down bundle) ..."
-make -j 4
+make -j "$(( $(cat /proc/cpuinfo | egrep ^processor | wc -l) + 1))"
 
 #=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#
 
-### add ngx_cache_purge & nginx-push-stream-module into openresty configure script
+### add nginx-push-stream-module/ngx_cache_purge/ngx_http_geoip2_module
+### into openresty configure script.
 ### values in key-value pairs http_k_k => http_v_v are names of github projects
-### ie nginx-push-stream-module, ngx_cache_purge
+### ie nginx-push-stream-module, ngx_cache_purge, ngx_http_geoip2_module
 ### super brittle, mmm
 
 LOCAL_OPENRESTY_PACKAGE_VERSION=$(echo "${OPENRESTY_GITHUB_VERSION}" | sed -e 's/^v//g')
 OPENRESTY_LOCAL_NGX_DIR="${OPENRESTY_GITHUB_PROJECT}-${LOCAL_OPENRESTY_PACKAGE_VERSION}"
-info_msg "===== adding ${NPSM_GITHUB_PACKAGE_NAME} to ${OPENRESTY_LOCAL_NGX_DIR}/configure ..."
+info_msg "===== adding ${PUSH_STREAM_MODULE_NAME}, ${CACHE_PURGE_MODULE_NAME}, ${GEOIP2_MODULE_NAME} to ${OPENRESTY_LOCAL_NGX_DIR}/configure ..."
 sed \
-	-e "s/\(^ *\)\(\[http_rds_csv => 'rds-csv-nginx-module'\],$\)/\1\2\n\1[http_push_stream => 'nginx-push-stream-module'],\n\1[http_cache_purge => 'ngx_cache_purge'],/g" \
+	-e "s/\(^ *\)\(\[http_rds_csv => 'rds-csv-nginx-module'\],$\)/\1\2\n\1[http_push_stream => '${PUSH_STREAM_MODULE_NAME}'],\n\1[http_cache_purge => '${CACHE_PURGE_MODULE_NAME}'],\n\1[http_geoip2 => '${GEOIP2_MODULE_NAME}'],/g" \
 	-i ${OPENRESTY_LOCAL_NGX_DIR}/configure
 
 #=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#
@@ -235,11 +266,15 @@ popd
 OPENRESTY_INSTALL_PREFIX=/usr/share/openresty
 OPENRESTY_INSTALL_PREFIX_ESCAPED=$(echo ${OPENRESTY_INSTALL_PREFIX} | sed 's/\//\\\//g')
 
-info_msg "configure-ing ${OPENRESTY_LOCAL_NGX_DIR}"
+info_msg "===== configure-ing ${OPENRESTY_LOCAL_NGX_DIR} (with LD_LIBRARY_PATH=${MAXMIND_LIB_PATH}, -I${MAXMIND_INC_PATH})"
+echo !!! ${MAXMIND_LIB_PATH}
+echo !!! ${MAXMIND_INC_PATH}
+echo !!! ${PCRE_VERSION}
+echo !!! ${OPENRESTY_INSTALL_PREFIX}
 cd ${OPENRESTY_LOCAL_NGX_DIR}
-./configure \
---with-cc-opt='-g -O2 -fstack-protector --param=ssp-buffer-size=4 -Wformat -Werror=format-security -D_FORTIFY_SOURCE=2' \
---with-ld-opt=-Wl,-z,relro \
+/usr/bin/env LD_LIBRARY_PATH=${MAXMIND_LIB_PATH} ./configure \
+--with-cc-opt="-g -O2 -fstack-protector --param=ssp-buffer-size=4 -Wformat -Werror=format-security -D_FORTIFY_SOURCE=2 -I${MAXMIND_INC_PATH}" \
+--with-ld-opt="-Wl,-z,relro -L${MAXMIND_LIB_PATH} -lmaxminddb" \
 --with-luajit \
 --with-pcre=../../${PCRE_VERSION} \
 --with-pcre-jit \
@@ -263,7 +298,6 @@ cd ${OPENRESTY_LOCAL_NGX_DIR}
 --with-http_realip_module \
 --with-http_auth_request_module \
 --with-http_addition_module \
---with-http_geoip_module \
 --with-http_gzip_static_module \
 --with-http_sub_module
 
@@ -272,9 +306,9 @@ cd ${OPENRESTY_LOCAL_NGX_DIR}
 ### build & install openresty
 ### - package created by FPM will be openresty_<version>+push-stream-<version>_<arch>.deb
 
-LOCAL_OPENRESTY_PACKAGE_NAME="${OPENRESTY_GITHUB_PROJECT}-${LOCAL_OPENRESTY_PACKAGE_VERSION}+${NPSM_GITHUB_PROJECT}"
+LOCAL_OPENRESTY_PACKAGE_NAME="${OPENRESTY_GITHUB_PROJECT}-${LOCAL_OPENRESTY_PACKAGE_VERSION}+realtime-extras"
 info_msg "===== building ${LOCAL_OPENRESTY_PACKAGE_NAME}"
-make -j 4
+make -j "$(( $(cat /proc/cpuinfo | egrep ^processor | wc -l) + 1))"
 
 info_msg "===== installing ${LOCAL_OPENRESTY_PACKAGE_NAME}"
 make install
@@ -301,11 +335,14 @@ sed \
 # replaces standard nginx init script from
 # 'nginx-common' with a susbsitute version
 # identical except for paths modified as above
+# and adds libmaxminddb to ld.so.conf
 AFTER_INSTALL_SCRIPT=${NGINX_ETC_DIR}/create-init-symlink
 cat > ${AFTER_INSTALL_SCRIPT} <<EOF
 rm ${SYSTEM_INIT_FILE}
 chmod +x ${NGINX_INIT_FILE}
 ln -s ${NGINX_INIT_FILE} ${SYSTEM_INIT_FILE}
+echo ${MAXMIND_LIB_PATH} > /etc/ld.so.conf.d/libmaxminddb.conf
+ldconfig -v 2>/dev/null | grep -i maxmind
 EOF
 
 #=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#
@@ -313,10 +350,10 @@ EOF
 ### build the .deb package
 
 FPM_OPENRESTY_PACKAGE_VERSION=${LOCAL_OPENRESTY_PACKAGE_VERSION}+realtime-extras-vbox
-FPM_OPENRESTY_FILE_PATHS="${OPENRESTY_INSTALL_PREFIX}/etc ${OPENRESTY_INSTALL_PREFIX}/bin ${OPENRESTY_INSTALL_PREFIX}/luajit ${OPENRESTY_INSTALL_PREFIX}/lualib ${OPENRESTY_INSTALL_PREFIX}/nginx"
+FPM_OPENRESTY_FILE_PATHS="${MAXMIND_INSTALL_PATH} ${OPENRESTY_INSTALL_PREFIX}/etc ${OPENRESTY_INSTALL_PREFIX}/bin ${OPENRESTY_INSTALL_PREFIX}/luajit ${OPENRESTY_INSTALL_PREFIX}/lualib ${OPENRESTY_INSTALL_PREFIX}/nginx"
 info_msg "===== building .deb package for ${OPENRESTY_GITHUB_USER}/${FPM_OPENRESTY_PACKAGE_VERSION}"
-info_msg "fpm -s dir -t deb -d 'nginx-common' -d 'libgeoip1' -n ${OPENRESTY_GITHUB_USER} -v ${FPM_OPENRESTY_PACKAGE_VERSION} --after-install ${AFTER_INSTALL_SCRIPT} ${FPM_OPENRESTY_FILE_PATHS}"
-fpm -s dir -t deb -d 'nginx-common' -d 'libgeoip1' -n ${OPENRESTY_GITHUB_USER} -v ${FPM_OPENRESTY_PACKAGE_VERSION} --after-install ${AFTER_INSTALL_SCRIPT} ${FPM_OPENRESTY_FILE_PATHS}
+info_msg "fpm -s dir -t deb -d 'nginx-common' -n ${OPENRESTY_GITHUB_USER} -v ${FPM_OPENRESTY_PACKAGE_VERSION} --after-install ${AFTER_INSTALL_SCRIPT} ${FPM_OPENRESTY_FILE_PATHS}"
+fpm -s dir -t deb -d 'nginx-common' -n ${OPENRESTY_GITHUB_USER} -v ${FPM_OPENRESTY_PACKAGE_VERSION} --after-install ${AFTER_INSTALL_SCRIPT} ${FPM_OPENRESTY_FILE_PATHS}
 
 #=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#
 
