@@ -239,34 +239,6 @@ info_msg "----- checking for NGX_MAX_ERROR_STR"
 fgrep "define NGX_MAX_ERROR_STR" src/core/ngx_log.h
 popd
 
-###	#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#
-###	
-###	### patch nginx src to include https://github.com/openresty/lua-nginx-module/commit/b948841c0
-###	### so that subrequests to WebDAV locations send correct headers
-###	
-###	info_msg "===== patching nginx so that DAV subrequests send correct headers"
-###	pushd ${OPENRESTY_LOCAL_NGX_DIR}/bundle/ngx_lua-[0-9\.]*
-###	set +e
-###	patch -p1 < /vagrant/patches/ngx_lua/0001-bugfix-setting-builtin-request-headers-Depth-Destina.patch
-###	set -e
-###	info_msg "----- checking for DAV subrequest patch"
-###	fgrep -A 2 Destination src/ngx_http_lua_headers_in.c
-###	popd
-###	
-###	#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#
-###	
-###	### patch nginx src to include https://github.com/openresty/lua-nginx-module/commit/4a9d4b11
-###	### so that subrequests return correct status codes
-###	
-###	info_msg "===== patching nginx so that DAV subrequests return correct status codes"
-###	pushd ${OPENRESTY_LOCAL_NGX_DIR}/bundle/ngx_lua-[0-9\.]*
-###	set +e
-###	patch -p1 < /vagrant/patches/ngx_lua/0001-bugfix-subrequest-response-status-codes-between-the-.patch
-###	set -e
-###	info_msg "----- checking for subrequest HTTP response patch"
-###	fgrep -B 1 -A 1 'pr_coctx->sr_statuses[ctx->index] = rc;' src/ngx_http_lua_subrequest.c
-###	popd
-
 #=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#
 
 ### run openresty configure script, using choice configure options from 'nginx -V' in debian nginx package
@@ -298,6 +270,7 @@ cd ${OPENRESTY_LOCAL_NGX_DIR}
 --http-uwsgi-temp-path=/var/lib/nginx/uwsgi \
 --with-debug \
 --with-ipv6 \
+--with-http_v2_module \
 --with-http_ssl_module \
 --with-http_stub_status_module \
 --with-http_realip_module \
