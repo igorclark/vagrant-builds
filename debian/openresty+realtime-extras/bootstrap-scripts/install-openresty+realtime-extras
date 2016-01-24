@@ -127,9 +127,10 @@ popd
 ### install FPM meta-packager | https://github.com/jordansissel/fpm
 
 info_msg "===== installing fpm prerequisites"
-info_msg "apt-get install -y ruby-dev"
-apt-get install -y ruby-dev
-info_msg "===== installing fpm"
+info_msg "----- installing ruby"
+info_msg "apt-get install -y ruby ruby-dev"
+apt-get install -y ruby ruby-dev
+info_msg "----- installing fpm"
 info_msg "gem install fpm"
 gem install fpm
 
