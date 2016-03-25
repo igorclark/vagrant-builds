@@ -159,7 +159,7 @@ ls -ld ${PCRE_VERSION}
 ### kick off openresty install | http://openresty.org/
 
 OPENRESTY_GITHUB_USER='openresty'
-OPENRESTY_GITHUB_PROJECT='ngx_openresty'
+OPENRESTY_GITHUB_PROJECT='openresty'
 info_msg "===== getting github project info for ${OPENRESTY_GITHUB_USER}/${OPENRESTY_GITHUB_PROJECT} latest version"
 # get all the tags
 OPENRESTY_GITHUB_RESPONSE=$(curl https://api.github.com/repos/${OPENRESTY_GITHUB_USER}/${OPENRESTY_GITHUB_PROJECT}/tags 2>/dev/null)
