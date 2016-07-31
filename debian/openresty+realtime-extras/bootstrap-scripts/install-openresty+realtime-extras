@@ -88,12 +88,19 @@ apt-get install -y jq
 ### install openresty/nginx stuff
 
 info_msg "===== installing openresty prerequisites"
-info_msg "apt-get install -y init-system-helpers build-essential libreadline-dev libncurses5-dev libssl-dev perl make dos2unix"
-apt-get install -y init-system-helpers build-essential libreadline-dev libncurses5-dev libssl-dev perl make dos2unix
+info_msg "apt-get install -y init-system-helpers build-essential libreadline-dev libncurses5-dev libssl-dev perl make dos2unix mercurial vim"
+apt-get install -y init-system-helpers build-essential libreadline-dev libncurses5-dev libssl-dev perl make dos2unix mercurial vim
 
 info_msg "===== installing debian nginx files"
 info_msg "apt-get install -y nginx-common"
 apt-get install -y nginx-common
+
+cat > ~/.vimrc <<EOF
+syntax on
+set ai
+set ts=4
+set sw=4
+EOF
 
 #=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#
 
@@ -223,7 +230,7 @@ LOCAL_OPENRESTY_PACKAGE_VERSION=$(echo "${OPENRESTY_GITHUB_VERSION}" | sed -e 's
 OPENRESTY_LOCAL_NGX_DIR="${OPENRESTY_GITHUB_PROJECT}-${LOCAL_OPENRESTY_PACKAGE_VERSION}"
 info_msg "===== adding ${PUSH_STREAM_MODULE_NAME}, ${CACHE_PURGE_MODULE_NAME}, ${GEOIP2_MODULE_NAME} to ${OPENRESTY_LOCAL_NGX_DIR}/configure ..."
 sed \
-	-e "s/\(^ *\)\(\[http_rds_csv => 'rds-csv-nginx-module'\],$\)/\1\2\n\1[http_push_stream => '${PUSH_STREAM_MODULE_NAME}'],\n\1[http_cache_purge => '${CACHE_PURGE_MODULE_NAME}'],\n\1[http_geoip2 => '${GEOIP2_MODULE_NAME}'],/g" \
+	-e "s/\(my @modules = (\)/\1\n    [http_push_stream => '${PUSH_STREAM_MODULE_NAME}'],\n    [http_cache_purge => '${CACHE_PURGE_MODULE_NAME}'],\n    [http_geoip2 => '${GEOIP2_MODULE_NAME}'],/g" \
 	-i ${OPENRESTY_LOCAL_NGX_DIR}/configure
 
 #=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#
@@ -250,7 +257,39 @@ OPENRESTY_INSTALL_PREFIX_ESCAPED=$(echo ${OPENRESTY_INSTALL_PREFIX} | sed 's/\//
 
 info_msg "===== configure-ing ${OPENRESTY_LOCAL_NGX_DIR} (with LD_LIBRARY_PATH=${MAXMIND_LIB_PATH}, -I${MAXMIND_INC_PATH})"
 cd ${OPENRESTY_LOCAL_NGX_DIR}
-/usr/bin/env LD_LIBRARY_PATH=${MAXMIND_LIB_PATH} ./configure \
+info_msg "[ working in $(pwd) ]"
+info_msg "----- configure command: -----"
+echo "./configure \\"
+echo "--with-cc-opt=\"-g -O2 -fstack-protector --param=ssp-buffer-size=4 -Wformat -Werror=format-security -D_FORTIFY_SOURCE=2 -I${MAXMIND_INC_PATH}\" \\"
+echo "--with-ld-opt=\"-Wl,-z,relro -L${MAXMIND_LIB_PATH} -lmaxminddb\" \\"
+echo "--with-luajit \\"
+echo "--with-pcre=../../${PCRE_VERSION} \\"
+echo "--with-pcre-jit \\"
+echo "--with-pcre-conf-opt=\"--enable-unicode-properties\" \\"
+echo "--with-http_dav_module \\"
+echo "--prefix=${OPENRESTY_INSTALL_PREFIX} \\"
+echo "--conf-path=/etc/nginx/nginx.conf \\"
+echo "--http-log-path=/var/log/nginx/access.log \\"
+echo "--error-log-path=/var/log/nginx/error.log \\"
+echo "--lock-path=/var/lock/nginx.lock \\"
+echo "--pid-path=/run/nginx.pid \\"
+echo "--http-client-body-temp-path=/var/lib/nginx/body \\"
+echo "--http-fastcgi-temp-path=/var/lib/nginx/fastcgi \\"
+echo "--http-proxy-temp-path=/var/lib/nginx/proxy \\"
+echo "--http-scgi-temp-path=/var/lib/nginx/scgi \\"
+echo "--http-uwsgi-temp-path=/var/lib/nginx/uwsgi \\"
+echo "--with-ipv6 \\"
+echo "--with-http_v2_module \\"
+echo "--with-http_ssl_module \\"
+echo "--with-http_stub_status_module \\"
+echo "--with-http_realip_module \\"
+echo "--with-http_auth_request_module \\"
+echo "--with-http_addition_module \\"
+echo "--with-http_gzip_static_module \\"
+echo "--with-http_sub_module"
+info_msg "----- end configure command: -----"
+
+./configure \
 --with-cc-opt="-g -O2 -fstack-protector --param=ssp-buffer-size=4 -Wformat -Werror=format-security -D_FORTIFY_SOURCE=2 -I${MAXMIND_INC_PATH}" \
 --with-ld-opt="-Wl,-z,relro -L${MAXMIND_LIB_PATH} -lmaxminddb" \
 --with-luajit \
@@ -269,7 +308,6 @@ cd ${OPENRESTY_LOCAL_NGX_DIR}
 --http-proxy-temp-path=/var/lib/nginx/proxy \
 --http-scgi-temp-path=/var/lib/nginx/scgi \
 --http-uwsgi-temp-path=/var/lib/nginx/uwsgi \
---with-debug \
 --with-ipv6 \
 --with-http_v2_module \
 --with-http_ssl_module \
