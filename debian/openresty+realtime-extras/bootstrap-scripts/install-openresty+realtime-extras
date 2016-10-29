@@ -348,17 +348,27 @@ sed \
 	< ${SYSTEM_INIT_FILE} \
 	> ${NGINX_INIT_FILE}
 
+# make sure nginx is symlinked to /usr/sbin for systemd
+OPENRESTY_NGINX_BINARY=${OPENRESTY_INSTALL_PREFIX}/nginx/sbin/nginx
+SYSTEMD_NGINX_BINARY=/usr/sbin/nginx
+
 # create after-install script for .deb file
 # replaces standard nginx init script from
 # 'nginx-common' with a susbsitute version
 # identical except for paths modified as above
-# and adds libmaxminddb to ld.so.conf
-AFTER_INSTALL_SCRIPT=${NGINX_ETC_DIR}/create-init-symlink
+# and adds libmaxminddb to ld.so.conf.
+# also symlinx /usr/share/openresty/nginx/sbin/nginx
+# to /usr/sbin/nginx so systemd on jessie stays happy.
+AFTER_INSTALL_SCRIPT=${NGINX_ETC_DIR}/create-init-symlinks
 cat > ${AFTER_INSTALL_SCRIPT} <<EOF
 rm ${SYSTEM_INIT_FILE}
 chmod +x ${NGINX_INIT_FILE}
 ln -s ${NGINX_INIT_FILE} ${SYSTEM_INIT_FILE}
 echo ${MAXMIND_LIB_PATH} > /etc/ld.so.conf.d/libmaxminddb.conf
+if [ -f ${SYSTEMD_NGINX_BINARY} ] ; then
+	rm -f ${SYSTEMD_NGINX_BINARY}
+fi
+ln -s ${OPENRESTY_NGINX_BINARY} ${SYSTEMD_NGINX_BINARY}
 ldconfig -v 2>/dev/null | grep -i maxmind
 EOF
 
