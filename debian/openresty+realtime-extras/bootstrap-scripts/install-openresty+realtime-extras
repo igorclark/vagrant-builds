@@ -106,10 +106,12 @@ EOF
 
 ### install markdown2pod
 
-info_msg "===== installing markdown2pod"
-PERL_MM_USE_DEFAULT=1 perl -MCPAN -e "CPAN::Shell->notest('install', 'Markdown::Pod')"
-info_msg "checking for markdown2pod ..."
-which markdown2pod
+if [ -z $(which markdown2pod) ] ; then
+	info_msg "===== installing markdown2pod"
+	PERL_MM_USE_DEFAULT=1 perl -MCPAN -e "CPAN::Shell->notest('install', 'Markdown::Pod')"
+	info_msg "checking for markdown2pod ..."
+	which markdown2pod
+fi
 
 #=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#
 
@@ -334,41 +336,23 @@ make install
 
 ### set up necessary files for .deb package
 
-# custom init script with paths pointing to .deb versions
-info_msg "===== creating custom init script"
-SYSTEM_INIT_DIR=/etc/init.d
-SYSTEM_INIT_FILE=${SYSTEM_INIT_DIR}/nginx
-NGINX_ETC_DIR=${OPENRESTY_INSTALL_PREFIX}/etc
-NGINX_INIT_DIR=${NGINX_ETC_DIR}/init.d
-NGINX_INIT_FILE=${NGINX_INIT_DIR}/nginx
-mkdir -p ${NGINX_INIT_DIR}
-sed \
-	-e 's/^PATH=\(.*\)/PATH='${OPENRESTY_INSTALL_PREFIX_ESCAPED}'\/nginx\/sbin:\1/g' \
-	-e 's/^DAEMON=\(.*\)/DAEMON='${OPENRESTY_INSTALL_PREFIX_ESCAPED}'\/nginx\/sbin\/nginx/g' \
-	< ${SYSTEM_INIT_FILE} \
-	> ${NGINX_INIT_FILE}
+# make sure nginx is symlinked to /usr/sbin for init & systemd
+OPENRESTY_SBIN=${OPENRESTY_INSTALL_PREFIX}/nginx/sbin
+OPENRESTY_NGINX_BINARY=${OPENRESTY_SBIN}/nginx
+SYSTEM_SBIN=/usr/sbin
+SYSTEM_NGINX_BINARY=${SYSTEM_SBIN}/nginx
 
-# make sure nginx is symlinked to /usr/sbin for systemd
-OPENRESTY_NGINX_BINARY=${OPENRESTY_INSTALL_PREFIX}/nginx/sbin/nginx
-SYSTEMD_NGINX_BINARY=/usr/sbin/nginx
+# symlink openresty nginx binary to /usr/sbin
+ln -sf ${OPENRESTY_NGINX_BINARY} ${SYSTEM_NGINX_BINARY}
 
 # create after-install script for .deb file
-# replaces standard nginx init script from
-# 'nginx-common' with a susbsitute version
-# identical except for paths modified as above
-# and adds libmaxminddb to ld.so.conf.
-# also symlinx /usr/share/openresty/nginx/sbin/nginx
-# to /usr/sbin/nginx so systemd on jessie stays happy.
-AFTER_INSTALL_SCRIPT=${NGINX_ETC_DIR}/create-init-symlinks
+# adds libmaxminddb to ld.so.conf
+NGINX_ETC_DIR=${OPENRESTY_INSTALL_PREFIX}/etc
+mkdir -p ${NGINX_ETC_DIR}
+AFTER_INSTALL_SCRIPT=${NGINX_ETC_DIR}/after-install
 cat > ${AFTER_INSTALL_SCRIPT} <<EOF
-rm ${SYSTEM_INIT_FILE}
-chmod +x ${NGINX_INIT_FILE}
-ln -s ${NGINX_INIT_FILE} ${SYSTEM_INIT_FILE}
+# add maxmind to ld.so.conf
 echo ${MAXMIND_LIB_PATH} > /etc/ld.so.conf.d/libmaxminddb.conf
-if [ -f ${SYSTEMD_NGINX_BINARY} ] ; then
-	rm -f ${SYSTEMD_NGINX_BINARY}
-fi
-ln -s ${OPENRESTY_NGINX_BINARY} ${SYSTEMD_NGINX_BINARY}
 ldconfig -v 2>/dev/null | grep -i maxmind
 EOF
 
@@ -377,7 +361,7 @@ EOF
 ### build the .deb package
 
 FPM_OPENRESTY_PACKAGE_VERSION=${LOCAL_OPENRESTY_PACKAGE_VERSION}+realtime-geoip2-vbox
-FPM_OPENRESTY_FILE_PATHS="${MAXMIND_INSTALL_PATH} ${OPENRESTY_INSTALL_PREFIX}/etc ${OPENRESTY_INSTALL_PREFIX}/bin ${OPENRESTY_INSTALL_PREFIX}/luajit ${OPENRESTY_INSTALL_PREFIX}/lualib ${OPENRESTY_INSTALL_PREFIX}/nginx"
+FPM_OPENRESTY_FILE_PATHS="${MAXMIND_INSTALL_PATH} ${SYSTEM_NGINX_BINARY} ${OPENRESTY_INSTALL_PREFIX}/etc ${OPENRESTY_INSTALL_PREFIX}/bin ${OPENRESTY_INSTALL_PREFIX}/luajit ${OPENRESTY_INSTALL_PREFIX}/lualib ${OPENRESTY_INSTALL_PREFIX}/nginx"
 info_msg "===== building .deb package for ${OPENRESTY_GITHUB_USER}/${FPM_OPENRESTY_PACKAGE_VERSION}"
 info_msg "fpm -s dir -t deb -d 'nginx-common' -n ${OPENRESTY_GITHUB_USER} -v ${FPM_OPENRESTY_PACKAGE_VERSION} --after-install ${AFTER_INSTALL_SCRIPT} ${FPM_OPENRESTY_FILE_PATHS}"
 fpm -s dir -t deb -d 'nginx-common' -n ${OPENRESTY_GITHUB_USER} -v ${FPM_OPENRESTY_PACKAGE_VERSION} --after-install ${AFTER_INSTALL_SCRIPT} ${FPM_OPENRESTY_FILE_PATHS}
