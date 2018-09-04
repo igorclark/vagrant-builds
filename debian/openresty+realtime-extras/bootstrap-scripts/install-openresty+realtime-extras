@@ -217,6 +217,11 @@ add_custom_nginx_module "leev" "${GEOIP2_MODULE_NAME}" "$(pwd)"
 
 ### pull in openresty packages
 
+info_msg "===== fixing simpl/simplresty- in mirror-tarballs ..."
+sed \
+	-e "s/^mv simpl-ngx_devel_kit/mv simplresty-ngx_devel_kit/g" \
+	-i ${OPENRESTY_WORKING_DIRECTORY}/util/mirror-tarballs
+
 info_msg "===== building ${OPENRESTY_GITHUB_PROJECT}-${OPENRESTY_GITHUB_COMMIT_STRING}/${OPENRESTY_GITHUB_VERSION} (= pre-build, pull down bundle) ..."
 make -j "$(( $(cat /proc/cpuinfo | egrep ^processor | wc -l) + 1))"
 
