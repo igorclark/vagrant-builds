@@ -201,13 +201,6 @@ add_custom_nginx_module "wandenberg" "${PUSH_STREAM_MODULE_NAME}" "$(pwd)"
 
 #=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#
 
-###	cache purge module | https://github.com/FRiCKLE/ngx_cache_purge
-
-CACHE_PURGE_MODULE_NAME="ngx_cache_purge"
-add_custom_nginx_module "FRiCKLE" "${CACHE_PURGE_MODULE_NAME}" "$(pwd)"
-
-#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#
-
 ###	geoip2 module | https://github.com/leev/ngx_http_geoip2_module
 
 GEOIP2_MODULE_NAME="ngx_http_geoip2_module"
@@ -227,17 +220,17 @@ make -j "$(( $(cat /proc/cpuinfo | egrep ^processor | wc -l) + 1))"
 
 #=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#
 
-### add nginx-push-stream-module/ngx_cache_purge/ngx_http_geoip2_module
+### add nginx-push-stream-module/ngx_http_geoip2_module
 ### into openresty configure script.
 ### values in key-value pairs http_k_k => http_v_v are names of github projects
-### ie nginx-push-stream-module, ngx_cache_purge, ngx_http_geoip2_module
+### ie nginx-push-stream-module, ngx_http_geoip2_module
 ### super brittle, mmm
 
 LOCAL_OPENRESTY_PACKAGE_VERSION=$(echo "${OPENRESTY_GITHUB_VERSION}" | sed -e 's/^v//g')
 OPENRESTY_LOCAL_NGX_DIR="${OPENRESTY_GITHUB_PROJECT}-${LOCAL_OPENRESTY_PACKAGE_VERSION}"
-info_msg "===== adding ${PUSH_STREAM_MODULE_NAME}, ${CACHE_PURGE_MODULE_NAME}, ${GEOIP2_MODULE_NAME} to ${OPENRESTY_LOCAL_NGX_DIR}/configure ..."
+info_msg "===== adding ${PUSH_STREAM_MODULE_NAME}, ${GEOIP2_MODULE_NAME} to ${OPENRESTY_LOCAL_NGX_DIR}/configure ..."
 sed \
-	-e "s/\(my @modules = (\)/\1\n    [http_push_stream => '${PUSH_STREAM_MODULE_NAME}'],\n    [http_cache_purge => '${CACHE_PURGE_MODULE_NAME}'],\n    [http_geoip2 => '${GEOIP2_MODULE_NAME}'],/g" \
+	-e "s/\(my @modules = (\)/\1\n    [http_push_stream => '${PUSH_STREAM_MODULE_NAME}'],\n    [http_geoip2 => '${GEOIP2_MODULE_NAME}'],/g" \
 	-i ${OPENRESTY_LOCAL_NGX_DIR}/configure
 
 #=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#
@@ -270,6 +263,7 @@ echo "./configure \\"
 echo "--with-cc-opt=\"-g -O2 -fstack-protector --param=ssp-buffer-size=4 -Wformat -Werror=format-security -D_FORTIFY_SOURCE=2 -I${MAXMIND_INC_PATH}\" \\"
 echo "--with-ld-opt=\"-Wl,-z,relro -L${MAXMIND_LIB_PATH} -lmaxminddb\" \\"
 echo "--with-luajit \\"
+echo "--with-debug \\"
 echo "--with-pcre=../../${PCRE_VERSION} \\"
 echo "--with-pcre-jit \\"
 echo "--with-pcre-conf-opt=\"--enable-unicode-properties\" \\"
@@ -300,6 +294,7 @@ info_msg "----- end configure command: -----"
 --with-cc-opt="-g -O2 -fstack-protector --param=ssp-buffer-size=4 -Wformat -Werror=format-security -D_FORTIFY_SOURCE=2 -I${MAXMIND_INC_PATH}" \
 --with-ld-opt="-Wl,-z,relro -L${MAXMIND_LIB_PATH} -lmaxminddb" \
 --with-luajit \
+--with-debug \
 --with-pcre=../../${PCRE_VERSION} \
 --with-pcre-jit \
 --with-pcre-conf-opt="--enable-unicode-properties" \
@@ -361,12 +356,17 @@ echo ${MAXMIND_LIB_PATH} > /etc/ld.so.conf.d/libmaxminddb.conf
 ldconfig -v 2>/dev/null | grep -i maxmind
 EOF
 
+# make sure OPM site directories get included
+for dir in lualib manifest pod ; do
+	touch ${OPENRESTY_INSTALL_PREFIX}/site/$dir/.ensure-dir-is-packaged
+done
+
 #=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#
 
 ### build the .deb package
 
 FPM_OPENRESTY_PACKAGE_VERSION=${LOCAL_OPENRESTY_PACKAGE_VERSION}+realtime-geoip2-vbox
-FPM_OPENRESTY_FILE_PATHS="${MAXMIND_INSTALL_PATH} ${SYSTEM_NGINX_BINARY} ${OPENRESTY_INSTALL_PREFIX}/etc ${OPENRESTY_INSTALL_PREFIX}/bin ${OPENRESTY_INSTALL_PREFIX}/luajit ${OPENRESTY_INSTALL_PREFIX}/lualib ${OPENRESTY_INSTALL_PREFIX}/nginx"
+FPM_OPENRESTY_FILE_PATHS="${MAXMIND_INSTALL_PATH} ${SYSTEM_NGINX_BINARY} ${OPENRESTY_INSTALL_PREFIX}"
 info_msg "===== building .deb package for ${OPENRESTY_GITHUB_USER}/${FPM_OPENRESTY_PACKAGE_VERSION}"
 info_msg "fpm -s dir -t deb -d 'nginx-common' -n ${OPENRESTY_GITHUB_USER} -v ${FPM_OPENRESTY_PACKAGE_VERSION} --after-install ${AFTER_INSTALL_SCRIPT} ${FPM_OPENRESTY_FILE_PATHS}"
 fpm -s dir -t deb -d 'nginx-common' -n ${OPENRESTY_GITHUB_USER} -v ${FPM_OPENRESTY_PACKAGE_VERSION} --after-install ${AFTER_INSTALL_SCRIPT} ${FPM_OPENRESTY_FILE_PATHS}
