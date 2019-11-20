@@ -1,0 +1,33 @@
+# -*- mode: ruby -*-
+# vi: set ft=ruby :
+
+# Vagrantfile API/syntax version. Don't touch unless you know what you're doing!
+VAGRANTFILE_API_VERSION = "2"
+
+Vagrant.configure(VAGRANTFILE_API_VERSION) do |config|
+
+  # openresty box
+  config.vm.define "openresty" do |openresty|
+##    openresty.vm.box = "bento/debian-7.9"
+    openresty.vm.box = "boxesio/stretch64"
+
+    openresty.vm.hostname = "openresty"
+	openresty.vm.network :private_network, ip: "172.16.56.110"
+
+	openresty.vm.provider "vmware_desktop" do |v|
+		v.vmx["memsize"] = "8192"
+		v.vmx["numvcpus"] = "2"
+		v.vmx["ethernet1.pcislotnumber"] = "33"
+	end
+
+    # fix that annoying "stdin: is not a tty"
+    # see http://foo-o-rama.com/vagrant--stdin-is-not-a-tty--fix.html
+    openresty.vm.provision "fix-no-tty", type: "shell" do |s|
+        s.privileged = false
+        s.inline = "sudo sed -i '/tty/!s/mesg n/tty -s \\&\\& mesg n/' /root/.profile"
+    end
+
+    openresty.vm.provision :shell, path: "bootstrap-scripts/install-openresty+realtime-extras"
+  end
+
+end

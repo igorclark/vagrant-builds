@@ -156,8 +156,12 @@ gem install fpm
 
 # get latest PCRE library v1 branch release, to enable pcre-JIT compiler in nginx/ngx_lua
 
+info_msg "===== installing pcre library"
+PCRE_INSTALL_PATH=/usr/share/pcre
+PCRE_LIB_PATH=${PCRE_INSTALL_PATH}/lib
+PCRE_INC_PATH=${PCRE_INSTALL_PATH}/include
 PCRE_VERSION=$(\
-	curl ftp://ftp.csx.cam.ac.uk/pub/software/programming/pcre/ 2>/dev/null \
+	curl ftp://ftp.pcre.org/pub/pcre/ 2>/dev/null \
 	| awk '{print $9}' \
 	| egrep '^pcre-.*bz2$' \
 	| tail -1 \
@@ -165,12 +169,20 @@ PCRE_VERSION=$(\
 	| tr -d '\n'\
 )
 info_msg "----- downloading PCRE library"
-info_msg "curl -L -O ftp://ftp.csx.cam.ac.uk/pub/software/programming/pcre/${PCRE_VERSION}.tar.bz2"
-curl -L -O ftp://ftp.csx.cam.ac.uk/pub/software/programming/pcre/${PCRE_VERSION}.tar.bz2
+info_msg "curl -L -O ftp://ftp.pcre.org/pub/pcre/${PCRE_VERSION}.tar.bz2"
+curl -L -O ftp://ftp.pcre.org/pub/pcre/${PCRE_VERSION}.tar.bz2
 info_msg "unzipping ${PCRE_VERSION}"
 tar jxf ${PCRE_VERSION}.tar.bz2
 info_msg "checking for ${PCRE_VERSION}..."
 ls -ld ${PCRE_VERSION}
+pushd ${PCRE_VERSION}
+./configure --prefix=${PCRE_INSTALL_PATH}
+make
+make install
+info_msg "===== adding pcre library to ld.so.conf"
+echo "${PCRE_INSTALL_PATH}" > /etc/ld.so.conf.d/libpcre.conf
+ldconfig -v 2>/dev/null | grep -i pcre
+popd
 
 #=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#
 
@@ -194,7 +206,7 @@ curl -o ${OPENRESTY_LOCAL_TARBALL_NAME} -L ${OPENRESTY_GITHUB_TARBALL_URL} 2>/de
 
 tar zxvf ${OPENRESTY_LOCAL_TARBALL_NAME}
 info_msg "===== changing to ${OPENRESTY_GITHUB_USER} directory"
-cd ${OPENRESTY_GITHUB_PACKAGE_NAME}
+cd openresty-openresty-??????? #${OPENRESTY_GITHUB_PACKAGE_NAME}
 ls -l
 
 #=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#
@@ -264,13 +276,14 @@ popd
 OPENRESTY_INSTALL_PREFIX=/usr/share/openresty
 OPENRESTY_INSTALL_PREFIX_ESCAPED=$(echo ${OPENRESTY_INSTALL_PREFIX} | sed 's/\//\\\//g')
 
-info_msg "===== configure-ing ${OPENRESTY_LOCAL_NGX_DIR} (with LD_LIBRARY_PATH=${MAXMIND_LIB_PATH}, -I${MAXMIND_INC_PATH})"
+info_msg "===== configure-ing ${OPENRESTY_LOCAL_NGX_DIR} (with LD_LIBRARY_PATH=${MAXMIND_LIB_PATH}:${PCRE_LIB_PATH}, -I${MAXMIND_INC_PATH}:${PCRE_INC_PATH})"
 cd ${OPENRESTY_LOCAL_NGX_DIR}
 info_msg "[ working in $(pwd) ]"
 info_msg "----- configure command: -----"
 echo "./configure \\"
-echo "--with-cc-opt=\"-g -O2 -fstack-protector --param=ssp-buffer-size=4 -Wformat -Werror=format-security -D_FORTIFY_SOURCE=2 -I${MAXMIND_INC_PATH}\" \\"
-echo "--with-ld-opt=\"-Wl,-z,relro -L${MAXMIND_LIB_PATH} -lmaxminddb\" \\"
+#echo "--with-cc-opt=\"-g -O2 -fstack-protector=strong --param=ssp-buffer-size=4 -Wformat -Werror=format-security -Wdate-time -D_FORTIFY_SOURCE=2 -I${MAXMIND_INC_PATH} -I${PCRE_INC_PATH}\\"
+echo "--with-cc-opt=\"-g -O2 -fstack-protector=strong -Wformat -Werror=format-security -Wdate-time -D_FORTIFY_SOURCE=2 -I${MAXMIND_INC_PATH} -I${PCRE_INC_PATH}\" \\"
+echo "--with-ld-opt=\"-Wl,-z,relro -Wl,-z,now -L${MAXMIND_LIB_PATH} -lmaxminddb -L${PCRE_LIB_PATH} -lpcre\" \\"
 echo "--with-luajit \\"
 echo "--with-debug \\"
 echo "--with-pcre=../../${PCRE_VERSION} \\"
@@ -300,11 +313,11 @@ echo "--with-http_sub_module"
 info_msg "----- end configure command: -----"
 
 ./configure \
---with-cc-opt="-g -O2 -fstack-protector --param=ssp-buffer-size=4 -Wformat -Werror=format-security -D_FORTIFY_SOURCE=2 -I${MAXMIND_INC_PATH}" \
---with-ld-opt="-Wl,-z,relro -L${MAXMIND_LIB_PATH} -lmaxminddb" \
+--with-cc-opt="-g -O2 -fstack-protector=strong -Wformat -Werror=format-security -Wdate-time -D_FORTIFY_SOURCE=2 -I${MAXMIND_INC_PATH} -I${PCRE_INC_PATH}" \
+--with-ld-opt="-Wl,-z,relro -Wl,-z,now -Wl,-rpath,${MAXMIND_LIB_PATH}:${PCRE_LIB_PATH} -lmaxminddb -lpcre" \
 --with-luajit \
 --with-debug \
---with-pcre=../../${PCRE_VERSION} \
+--with-pcre="../../${PCRE_VERSION}" \
 --with-pcre-jit \
 --with-pcre-conf-opt="--enable-unicode-properties" \
 --with-http_dav_module \
@@ -362,7 +375,9 @@ AFTER_INSTALL_SCRIPT=${NGINX_ETC_DIR}/after-install
 cat > ${AFTER_INSTALL_SCRIPT} <<EOF
 # add maxmind to ld.so.conf
 echo ${MAXMIND_LIB_PATH} > /etc/ld.so.conf.d/libmaxminddb.conf
+echo ${PCRE_LIB_PATH} > /etc/ld.so.conf.d/libpcre.conf
 ldconfig -v 2>/dev/null | grep -i maxmind
+ldconfig -v 2>/dev/null | grep -i pcre
 EOF
 
 # make sure OPM site directories get included
@@ -375,7 +390,7 @@ done
 ### build the .deb package
 
 FPM_OPENRESTY_PACKAGE_VERSION=${LOCAL_OPENRESTY_PACKAGE_VERSION}+realtime-geoip2-vbox-debian-9
-FPM_OPENRESTY_FILE_PATHS="${MAXMIND_INSTALL_PATH} ${SYSTEM_NGINX_BINARY} ${OPENRESTY_INSTALL_PREFIX}"
+FPM_OPENRESTY_FILE_PATHS="${MAXMIND_INSTALL_PATH} ${PCRE_INSTALL_PATH} ${SYSTEM_NGINX_BINARY} ${OPENRESTY_INSTALL_PREFIX}"
 info_msg "===== building .deb package for ${OPENRESTY_GITHUB_USER}/${FPM_OPENRESTY_PACKAGE_VERSION}"
 info_msg "fpm -s dir -t deb -d 'nginx-common' -n ${OPENRESTY_GITHUB_USER} -v ${FPM_OPENRESTY_PACKAGE_VERSION} --after-install ${AFTER_INSTALL_SCRIPT} ${FPM_OPENRESTY_FILE_PATHS}"
 fpm -s dir -t deb -d 'nginx-common' -n ${OPENRESTY_GITHUB_USER} -v ${FPM_OPENRESTY_PACKAGE_VERSION} --after-install ${AFTER_INSTALL_SCRIPT} ${FPM_OPENRESTY_FILE_PATHS}
