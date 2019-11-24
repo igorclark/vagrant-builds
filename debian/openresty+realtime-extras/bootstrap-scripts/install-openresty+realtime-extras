@@ -97,8 +97,8 @@ apt-get install -y jq
 ### install openresty/nginx stuff
 
 info_msg "===== installing openresty prerequisites"
-info_msg "apt-get install -y init-system-helpers build-essential libreadline-dev libncurses5-dev libssl-dev perl make dos2unix mercurial vim"
-apt-get install -y init-system-helpers build-essential libreadline-dev libncurses5-dev libssl-dev perl make dos2unix mercurial vim
+info_msg "apt-get install -y init-system-helpers build-essential libreadline-dev libncurses5-dev libssl-dev zlib1g zlib1g-dev perl make dos2unix mercurial vim"
+apt-get install -y init-system-helpers build-essential libreadline-dev libncurses5-dev libssl-dev zlib1g zlib1g-dev perl make dos2unix mercurial vim
 
 info_msg "===== installing debian nginx files"
 info_msg "apt-get install -y nginx-common"
