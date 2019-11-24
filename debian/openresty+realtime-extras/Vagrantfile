@@ -9,7 +9,8 @@ Vagrant.configure(VAGRANTFILE_API_VERSION) do |config|
   # openresty box
   config.vm.define "openresty" do |openresty|
 ##    openresty.vm.box = "bento/debian-7.9"
-    openresty.vm.box = "bento/debian-9.6"
+##    openresty.vm.box = "bento/debian-9.6"
+	openresty.vm.box = "boxesio/stretch64"
 
     openresty.vm.hostname = "openresty"
 	openresty.vm.network :private_network, ip: "192.168.56.110"
