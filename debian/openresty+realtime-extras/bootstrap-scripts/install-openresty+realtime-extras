@@ -66,7 +66,7 @@ info_msg "apt-get update -y"
 apt-get update -y
 
 info_msg "apt-get upgrade -y"
-apt-get upgrade -y
+DEBIAN_FRONTEND=noninteractive apt-get -y -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confold" upgrade
 
 ##### old wheezy/jessie backports stuff for debian-7.9
 
@@ -125,13 +125,13 @@ fi
 #=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#
 
 ### install maxmind db
-info_msg "===== installing maxmind db library"
+info_msg "===== installing maxmind db library v.1.4.2"
 MAXMIND_INSTALL_PATH=/usr/share/maxmind
 MAXMIND_LIB_PATH=${MAXMIND_INSTALL_PATH}/lib
 MAXMIND_INC_PATH=${MAXMIND_INSTALL_PATH}/include
-curl -OL https://github.com/maxmind/libmaxminddb/releases/download/1.1.2/libmaxminddb-1.1.2.tar.gz
-tar xzf libmaxminddb-1.1.2.tar.gz
-pushd libmaxminddb-1.1.2
+curl -OL https://github.com/maxmind/libmaxminddb/releases/download/1.4.2/libmaxminddb-1.4.2.tar.gz
+tar xzf libmaxminddb-1.4.2.tar.gz
+pushd libmaxminddb-1.4.2
 ./configure --prefix=${MAXMIND_INSTALL_PATH}
 make
 make install
@@ -156,8 +156,12 @@ gem install fpm
 
 # get latest PCRE library v1 branch release, to enable pcre-JIT compiler in nginx/ngx_lua
 
+info_msg "===== installing PCRE library"
+PCRE_INSTALL_PATH=/usr/share/pcre
+PCRE_LIB_PATH=${PCRE_INSTALL_PATH}/lib
+PCRE_INC_PATH=${PCRE_INSTALL_PATH}/include
 PCRE_VERSION=$(\
-	curl ftp://ftp.csx.cam.ac.uk/pub/software/programming/pcre/ 2>/dev/null \
+	curl ftp://ftp.pcre.org/pub/pcre/ 2>/dev/null \
 	| awk '{print $9}' \
 	| egrep '^pcre-.*bz2$' \
 	| tail -1 \
@@ -165,12 +169,24 @@ PCRE_VERSION=$(\
 	| tr -d '\n'\
 )
 info_msg "----- downloading PCRE library"
-info_msg "curl -L -O ftp://ftp.csx.cam.ac.uk/pub/software/programming/pcre/${PCRE_VERSION}.tar.bz2"
-curl -L -O ftp://ftp.csx.cam.ac.uk/pub/software/programming/pcre/${PCRE_VERSION}.tar.bz2
+info_msg "curl -L -O ftp://ftp.pcre.org/pub/pcre/${PCRE_VERSION}.tar.bz2"
+curl -L -O ftp://ftp.pcre.org/pub/pcre/${PCRE_VERSION}.tar.bz2
 info_msg "unzipping ${PCRE_VERSION}"
 tar jxf ${PCRE_VERSION}.tar.bz2
 info_msg "checking for ${PCRE_VERSION}..."
 ls -ld ${PCRE_VERSION}
+pushd ${PCRE_VERSION}
+info_msg "configure-ing PCRE in ${PCRE_VERSION} ..."
+./configure \
+--prefix=${PCRE_INSTALL_PATH} \
+--enable-unicode-properties \
+--enable-jit
+make
+make install
+info_msg "===== adding PCRE library to ld.so.conf"
+echo "${PCRE_LIB_PATH}" > /etc/ld.so.conf.d/libpcre.conf
+ldconfig -v 2>/dev/null |grep -i maxmind
+popd
 
 #=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#
 
@@ -181,6 +197,8 @@ OPENRESTY_GITHUB_PROJECT='openresty'
 info_msg "===== getting github project info for ${OPENRESTY_GITHUB_USER}/${OPENRESTY_GITHUB_PROJECT} latest version"
 # get all the tags
 OPENRESTY_GITHUB_RESPONSE=$(curl https://api.github.com/repos/${OPENRESTY_GITHUB_USER}/${OPENRESTY_GITHUB_PROJECT}/tags 2>/dev/null)
+info_msg "===== got GitHub API openresty info:"
+echo ${OPENRESTY_GITHUB_RESPONSE} | jq .
 # strip out release candidate
 OPENRESTY_GITHUB_INFO=$(echo "${OPENRESTY_GITHUB_RESPONSE}"| jq -r '. - map(select(.name|endswith("rc1")))')
 OPENRESTY_GITHUB_VERSION=$(echo "${OPENRESTY_GITHUB_INFO}"| jq -r '.[0].name')
@@ -190,11 +208,13 @@ OPENRESTY_GITHUB_PACKAGE_NAME="${OPENRESTY_GITHUB_USER}-${OPENRESTY_GITHUB_PROJE
 
 info_msg "===== retrieving ${OPENRESTY_GITHUB_USER}/${OPENRESTY_GITHUB_PROJECT} version ${OPENRESTY_GITHUB_VERSION}"
 OPENRESTY_LOCAL_TARBALL_NAME=${OPENRESTY_GITHUB_PACKAGE_NAME}-${OPENRESTY_GITHUB_VERSION}.tar.gz
+echo "curl -o ${OPENRESTY_LOCAL_TARBALL_NAME} -L ${OPENRESTY_GITHUB_TARBALL_URL} 2>/dev/null"
 curl -o ${OPENRESTY_LOCAL_TARBALL_NAME} -L ${OPENRESTY_GITHUB_TARBALL_URL} 2>/dev/null
 
+echo "tar zxvf ${OPENRESTY_LOCAL_TARBALL_NAME}"
 tar zxvf ${OPENRESTY_LOCAL_TARBALL_NAME}
-info_msg "===== changing to ${OPENRESTY_GITHUB_USER} directory"
-cd ${OPENRESTY_GITHUB_PACKAGE_NAME}
+info_msg "===== changing to ${OPENRESTY_GITHUB_USER} directory: ${OPENRESTY_GITHUB_PACKAGE_NAME}"
+cd openresty-openresty-???????
 ls -l
 
 #=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#
@@ -269,13 +289,13 @@ cd ${OPENRESTY_LOCAL_NGX_DIR}
 info_msg "[ working in $(pwd) ]"
 info_msg "----- configure command: -----"
 echo "./configure \\"
-echo "--with-cc-opt=\"-g -O2 -fstack-protector --param=ssp-buffer-size=4 -Wformat -Werror=format-security -D_FORTIFY_SOURCE=2 -I${MAXMIND_INC_PATH}\" \\"
-echo "--with-ld-opt=\"-Wl,-z,relro -L${MAXMIND_LIB_PATH} -lmaxminddb\" \\"
+echo "--with-cc-opt=\"-g -O2 -fstack-protector --param=ssp-buffer-size=4 -Wformat -Werror=format-security -D_FORTIFY_SOURCE=2 -I${MAXMIND_INC_PATH} -I${PCRE_INC_PATH}\" \\"
+echo "--with-ld-opt=\"-Wl,-z,relro -L${MAXMIND_LIB_PATH} -lmaxminddb -L${PCRE_LIB_PATH} -lpcre\" \\"
 echo "--with-luajit \\"
 echo "--with-debug \\"
 echo "--with-pcre=../../${PCRE_VERSION} \\"
 echo "--with-pcre-jit \\"
-echo "--with-pcre-conf-opt=\"--enable-unicode-properties\" \\"
+echo "--with-pcre-conf-opt=\"--enable-unicode-properties --enable-jit\" \\"
 echo "--with-http_dav_module \\"
 echo "--prefix=${OPENRESTY_INSTALL_PREFIX} \\"
 echo "--conf-path=/etc/nginx/nginx.conf \\"
@@ -300,8 +320,8 @@ echo "--with-http_sub_module"
 info_msg "----- end configure command: -----"
 
 ./configure \
---with-cc-opt="-g -O2 -fstack-protector --param=ssp-buffer-size=4 -Wformat -Werror=format-security -D_FORTIFY_SOURCE=2 -I${MAXMIND_INC_PATH}" \
---with-ld-opt="-Wl,-z,relro -L${MAXMIND_LIB_PATH} -lmaxminddb" \
+--with-cc-opt="-g -O2 -fstack-protector --param=ssp-buffer-size=4 -Wformat -Werror=format-security -D_FORTIFY_SOURCE=2 -I${MAXMIND_INC_PATH} -I${PCRE_INC_PATH}" \
+--with-ld-opt="-Wl,-z,relro -L${MAXMIND_LIB_PATH} -lmaxminddb -L${PCRE_LIB_PATH} -lpcre" \
 --with-luajit \
 --with-debug \
 --with-pcre=../../${PCRE_VERSION} \
@@ -355,7 +375,8 @@ SYSTEM_NGINX_BINARY=${SYSTEM_SBIN}/nginx
 ln -sf ${OPENRESTY_NGINX_BINARY} ${SYSTEM_NGINX_BINARY}
 
 # create after-install script for .deb file
-# adds libmaxminddb to ld.so.conf
+# - adds libmaxminddb to ld.so.conf
+# - adds pcre to ld.so.conf
 NGINX_ETC_DIR=${OPENRESTY_INSTALL_PREFIX}/etc
 mkdir -p ${NGINX_ETC_DIR}
 AFTER_INSTALL_SCRIPT=${NGINX_ETC_DIR}/after-install
@@ -363,6 +384,9 @@ cat > ${AFTER_INSTALL_SCRIPT} <<EOF
 # add maxmind to ld.so.conf
 echo ${MAXMIND_LIB_PATH} > /etc/ld.so.conf.d/libmaxminddb.conf
 ldconfig -v 2>/dev/null | grep -i maxmind
+# add pcre to ld.so.conf
+echo ${PCRE_LIB_PATH} > /etc/ld.so.conf.d/libpcredb.conf
+ldconfig -v 2>/dev/null | grep -i pcre
 EOF
 
 # make sure OPM site directories get included
@@ -375,7 +399,7 @@ done
 ### build the .deb package
 
 FPM_OPENRESTY_PACKAGE_VERSION=${LOCAL_OPENRESTY_PACKAGE_VERSION}+realtime-geoip2-vbox-debian-9
-FPM_OPENRESTY_FILE_PATHS="${MAXMIND_INSTALL_PATH} ${SYSTEM_NGINX_BINARY} ${OPENRESTY_INSTALL_PREFIX}"
+FPM_OPENRESTY_FILE_PATHS="${MAXMIND_INSTALL_PATH} ${PCRE_INSTALL_PATH} ${SYSTEM_NGINX_BINARY} ${OPENRESTY_INSTALL_PREFIX}"
 info_msg "===== building .deb package for ${OPENRESTY_GITHUB_USER}/${FPM_OPENRESTY_PACKAGE_VERSION}"
 info_msg "fpm -s dir -t deb -d 'nginx-common' -n ${OPENRESTY_GITHUB_USER} -v ${FPM_OPENRESTY_PACKAGE_VERSION} --after-install ${AFTER_INSTALL_SCRIPT} ${FPM_OPENRESTY_FILE_PATHS}"
 fpm -s dir -t deb -d 'nginx-common' -n ${OPENRESTY_GITHUB_USER} -v ${FPM_OPENRESTY_PACKAGE_VERSION} --after-install ${AFTER_INSTALL_SCRIPT} ${FPM_OPENRESTY_FILE_PATHS}
