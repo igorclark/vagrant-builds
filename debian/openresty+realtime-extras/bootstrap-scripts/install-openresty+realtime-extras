@@ -137,7 +137,7 @@ make
 make install
 info_msg "===== adding maxmind db library to ld.so.conf"
 echo "${MAXMIND_LIB_PATH}" > /etc/ld.so.conf.d/libmaxminddb.conf
-ldconfig -v 2>/dev/null |grep -i maxmind
+ldconfig -v 2>/dev/null | grep -i maxmind
 popd
 
 #=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#
@@ -185,7 +185,7 @@ make
 make install
 info_msg "===== adding PCRE library to ld.so.conf"
 echo "${PCRE_LIB_PATH}" > /etc/ld.so.conf.d/libpcre.conf
-ldconfig -v 2>/dev/null |grep -i maxmind
+ldconfig -v 2>/dev/null | grep -i pcre
 popd
 
 #=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#
@@ -214,6 +214,7 @@ curl -o ${OPENRESTY_LOCAL_TARBALL_NAME} -L ${OPENRESTY_GITHUB_TARBALL_URL} 2>/de
 echo "tar zxvf ${OPENRESTY_LOCAL_TARBALL_NAME}"
 tar zxvf ${OPENRESTY_LOCAL_TARBALL_NAME}
 info_msg "===== changing to ${OPENRESTY_GITHUB_USER} directory: ${OPENRESTY_GITHUB_PACKAGE_NAME}"
+# wrong version hash in 1.15.8.2 tarball
 cd openresty-openresty-???????
 ls -l
 
