@@ -2,10 +2,24 @@
 set -euo pipefail
 
 #=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#
+#
+# to test with shellcheck, we ignore these particular categories in 3 places:
+#
+# SC2001: See if you can use ${variable//search/replace} instead.
+#	- unfortunately we can't, it doesn't like ^/$ etc, see
+#	  LOCAL_OPENRESTY_PACKAGE_VERSION
+#
+# SC2004: $/${} is unnecessary on arithmetic variables.
+#	- yeah, well, we like 'em, now we're all used to 'em. your fault.
+#
+# SC2230: which is non-standard. Use builtin 'command -v' instead.
+#	- this is only intended to run on debian, which definitely has 'which'.
+#
+#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#
 
 ### make info messages hi-vis
 info_msg () {
-	echo -e '\E[37;44m'"\033[1m::::: "$1"\033[0m"
+	echo -e '\E[37;44m'"\033[1m::::: ""$1""\033[0m"
 	tput sgr0
 }
 
@@ -23,7 +37,7 @@ add_custom_nginx_module () {
 	### get info for specified module
 
 	info_msg "===== getting github project info for ${MODULE_GITHUB_USER}/${MODULE_GITHUB_PROJECT} latest version"
-	MODULE_GITHUB_INFO=$(curl https://api.github.com/repos/${MODULE_GITHUB_USER}/${MODULE_GITHUB_PROJECT}/tags 2>/dev/null)
+	MODULE_GITHUB_INFO=$(curl "https://api.github.com/repos/${MODULE_GITHUB_USER}/${MODULE_GITHUB_PROJECT}/tags" 2>/dev/null)
 	MODULE_GITHUB_VERSION=$(echo "${MODULE_GITHUB_INFO}"| jq -r '.[0].name')
 	MODULE_GITHUB_TARBALL_URL=$(echo "${MODULE_GITHUB_INFO}"| jq -r '.[0].tarball_url')
 	MODULE_GITHUB_COMMIT_STRING=$(echo "${MODULE_GITHUB_INFO}" | jq -r '.[0].commit.sha[0:7]')
@@ -36,7 +50,7 @@ add_custom_nginx_module () {
 	OPENRESTY_MODULE_TARBALL_NAME="${OPENRESTY_MODULE_PACKAGE_NAME}.tar.gz"
 
 	info_msg "===== adding ${MODULE_GITHUB_PROJECT} to the ${OPENRESTY_GITHUB_PROJECT} 'mirror-tarballs' script"
-	sed "s/\(^.* \*\.tar\.gz$\)/ver=${MODULE_GITHUB_VERSION}\n\$root\/util\/get-tarball \"${ESCAPED_MODULE_GITHUB_TARBALL_URL}\" -O \"${OPENRESTY_MODULE_TARBALL_NAME}\" || exit 1\ntar -xzf ${OPENRESTY_MODULE_TARBALL_NAME} || exit 1\nmv ${MODULE_GITHUB_PACKAGE_NAME} ${OPENRESTY_MODULE_PACKAGE_NAME} || exit 1\n\n#################################\n\n\1/g" -i ${OPENRESTY_WORKING_DIRECTORY}/util/mirror-tarballs
+	sed "s/\(^.* \*\.tar\.gz$\)/ver=${MODULE_GITHUB_VERSION}\n\$root\/util\/get-tarball \"${ESCAPED_MODULE_GITHUB_TARBALL_URL}\" -O \"${OPENRESTY_MODULE_TARBALL_NAME}\" || exit 1\ntar -xzf ${OPENRESTY_MODULE_TARBALL_NAME} || exit 1\nmv ${MODULE_GITHUB_PACKAGE_NAME} ${OPENRESTY_MODULE_PACKAGE_NAME} || exit 1\n\n#################################\n\n\1/g" -i "${OPENRESTY_WORKING_DIRECTORY}/util/mirror-tarballs"
 
 }
 
@@ -55,7 +69,7 @@ sed \
 	-e 's/^nameserver .*/nameserver 8.8.8.8/g' \
 	-i /etc/resolv.conf
 info_msg "----- checking for google DNS resolver"
-fgrep nameserver /etc/resolv.conf
+grep -F nameserver /etc/resolv.conf
 
 #=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#
 
@@ -115,24 +129,30 @@ EOF
 
 ### install markdown2pod
 
-if [ -z $(which markdown2pod) ] ; then
-	info_msg "===== installing markdown2pod"
+set +e
+MARKDOWN2POD_ATTEMPTS=0
+# shellcheck disable=SC2230
+while [[ -z $(which markdown2pod) ]] ; do
+	# shellcheck disable=SC2004
+	MARKDOWN2POD_ATTEMPTS=$(( ${MARKDOWN2POD_ATTEMPTS} + 1 ))
+	info_msg "===== installing markdown2pod: attempt ${MARKDOWN2POD_ATTEMPTS}"
 	PERL_MM_USE_DEFAULT=1 perl -MCPAN -e "CPAN::Shell->notest('install', 'Markdown::Pod')"
 	info_msg "checking for markdown2pod ..."
 	which markdown2pod
-fi
+done
+set -e
 
 #=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#
 
 ### install maxmind db
 info_msg "===== installing maxmind db library v.1.4.2"
 MAXMIND_INSTALL_PATH=/usr/share/maxmind
-MAXMIND_LIB_PATH=${MAXMIND_INSTALL_PATH}/lib
-MAXMIND_INC_PATH=${MAXMIND_INSTALL_PATH}/include
+MAXMIND_LIB_PATH="${MAXMIND_INSTALL_PATH}/lib"
+MAXMIND_INC_PATH="${MAXMIND_INSTALL_PATH}/include"
 curl -OL https://github.com/maxmind/libmaxminddb/releases/download/1.4.2/libmaxminddb-1.4.2.tar.gz
 tar xzf libmaxminddb-1.4.2.tar.gz
 pushd libmaxminddb-1.4.2
-./configure --prefix=${MAXMIND_INSTALL_PATH}
+./configure --prefix="${MAXMIND_INSTALL_PATH}"
 make
 make install
 info_msg "===== adding maxmind db library to ld.so.conf"
@@ -158,24 +178,24 @@ gem install fpm
 
 info_msg "===== installing PCRE library"
 PCRE_INSTALL_PATH=/usr/share/pcre
-PCRE_LIB_PATH=${PCRE_INSTALL_PATH}/lib
-PCRE_INC_PATH=${PCRE_INSTALL_PATH}/include
+PCRE_LIB_PATH="${PCRE_INSTALL_PATH}/lib"
+PCRE_INC_PATH="${PCRE_INSTALL_PATH}/include"
 PCRE_VERSION=$(\
 	curl ftp://ftp.pcre.org/pub/pcre/ 2>/dev/null \
 	| awk '{print $9}' \
-	| egrep '^pcre-.*bz2$' \
+	| grep -E '^pcre-.*bz2$' \
 	| tail -1 \
 	| sed 's/.tar.bz2$//g' \
 	| tr -d '\n'\
 )
 info_msg "----- downloading PCRE library"
 info_msg "curl -L -O ftp://ftp.pcre.org/pub/pcre/${PCRE_VERSION}.tar.bz2"
-curl -L -O ftp://ftp.pcre.org/pub/pcre/${PCRE_VERSION}.tar.bz2
+curl -L -O "ftp://ftp.pcre.org/pub/pcre/${PCRE_VERSION}.tar.bz2"
 info_msg "unzipping ${PCRE_VERSION}"
-tar jxf ${PCRE_VERSION}.tar.bz2
+tar jxf "${PCRE_VERSION}.tar.bz2"
 info_msg "checking for ${PCRE_VERSION}..."
-ls -ld ${PCRE_VERSION}
-pushd ${PCRE_VERSION}
+ls -ld "${PCRE_VERSION}"
+pushd "${PCRE_VERSION}"
 info_msg "configure-ing PCRE in ${PCRE_VERSION} ..."
 ./configure \
 --prefix=${PCRE_INSTALL_PATH} \
@@ -198,7 +218,7 @@ info_msg "===== getting github project info for ${OPENRESTY_GITHUB_USER}/${OPENR
 # get all the tags
 OPENRESTY_GITHUB_RESPONSE=$(curl https://api.github.com/repos/${OPENRESTY_GITHUB_USER}/${OPENRESTY_GITHUB_PROJECT}/tags 2>/dev/null)
 info_msg "===== got GitHub API openresty info:"
-echo ${OPENRESTY_GITHUB_RESPONSE} | jq .
+echo "${OPENRESTY_GITHUB_RESPONSE}" | jq .
 # strip out release candidate
 OPENRESTY_GITHUB_INFO=$(echo "${OPENRESTY_GITHUB_RESPONSE}"| jq -r '. - map(select(.name|endswith("rc1")))')
 OPENRESTY_GITHUB_VERSION=$(echo "${OPENRESTY_GITHUB_INFO}"| jq -r '.[0].name')
@@ -209,10 +229,10 @@ OPENRESTY_GITHUB_PACKAGE_NAME="${OPENRESTY_GITHUB_USER}-${OPENRESTY_GITHUB_PROJE
 info_msg "===== retrieving ${OPENRESTY_GITHUB_USER}/${OPENRESTY_GITHUB_PROJECT} version ${OPENRESTY_GITHUB_VERSION}"
 OPENRESTY_LOCAL_TARBALL_NAME=${OPENRESTY_GITHUB_PACKAGE_NAME}-${OPENRESTY_GITHUB_VERSION}.tar.gz
 echo "curl -o ${OPENRESTY_LOCAL_TARBALL_NAME} -L ${OPENRESTY_GITHUB_TARBALL_URL} 2>/dev/null"
-curl -o ${OPENRESTY_LOCAL_TARBALL_NAME} -L ${OPENRESTY_GITHUB_TARBALL_URL} 2>/dev/null
+curl -o "${OPENRESTY_LOCAL_TARBALL_NAME}" -L "${OPENRESTY_GITHUB_TARBALL_URL}" 2>/dev/null
 
 echo "tar zxvf ${OPENRESTY_LOCAL_TARBALL_NAME}"
-tar zxvf ${OPENRESTY_LOCAL_TARBALL_NAME}
+tar zxvf "${OPENRESTY_LOCAL_TARBALL_NAME}"
 info_msg "===== changing to ${OPENRESTY_GITHUB_USER} directory: ${OPENRESTY_GITHUB_PACKAGE_NAME}"
 # wrong version hash in 1.15.8.2 tarball
 cd openresty-openresty-???????
@@ -243,10 +263,10 @@ add_custom_nginx_module "leev" "${GEOIP2_MODULE_NAME}" "$(pwd)"
 info_msg "===== fixing simpl/simplresty- in mirror-tarballs ..."
 sed \
 	-e "s/^mv simpl-ngx_devel_kit/mv simplresty-ngx_devel_kit/g" \
-	-i ${OPENRESTY_WORKING_DIRECTORY}/util/mirror-tarballs
+	-i "${OPENRESTY_WORKING_DIRECTORY}/util/mirror-tarballs"
 
 info_msg "===== building ${OPENRESTY_GITHUB_PROJECT}-${OPENRESTY_GITHUB_COMMIT_STRING}/${OPENRESTY_GITHUB_VERSION} (= pre-build, pull down bundle) ..."
-make -j "$(( $(cat /proc/cpuinfo | egrep ^processor | wc -l) + 1))"
+make -j "$(( $( grep -c -E ^processor < /proc/cpuinfo ) + 1))"
 
 #=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#
 
@@ -256,12 +276,13 @@ make -j "$(( $(cat /proc/cpuinfo | egrep ^processor | wc -l) + 1))"
 ### ie nginx-push-stream-module, ngx_http_geoip2_module
 ### super brittle, mmm
 
-LOCAL_OPENRESTY_PACKAGE_VERSION=$(echo "${OPENRESTY_GITHUB_VERSION}" | sed -e 's/^v//g')
+# shellcheck disable=SC2001
+LOCAL_OPENRESTY_PACKAGE_VERSION=$( echo "${OPENRESTY_GITHUB_VERSION}" | sed -e 's/^v//g' )
 OPENRESTY_LOCAL_NGX_DIR="${OPENRESTY_GITHUB_PROJECT}-${LOCAL_OPENRESTY_PACKAGE_VERSION}"
 info_msg "===== adding ${PUSH_STREAM_MODULE_NAME}, ${GEOIP2_MODULE_NAME} to ${OPENRESTY_LOCAL_NGX_DIR}/configure ..."
 sed \
 	-e "s/\(my @modules = (\)/\1\n    [http_push_stream => '${PUSH_STREAM_MODULE_NAME}'],\n    [http_geoip2 => '${GEOIP2_MODULE_NAME}'],/g" \
-	-i ${OPENRESTY_LOCAL_NGX_DIR}/configure
+	-i "${OPENRESTY_LOCAL_NGX_DIR}/configure"
 
 #=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#
 
@@ -270,11 +291,11 @@ sed \
 
 NGX_MAX_ERROR_STR=8192
 info_msg "===== patching nginx to have NGX_MAX_ERROR_STR = ${NGX_MAX_ERROR_STR} to have longer error log messages"
-pushd ${OPENRESTY_LOCAL_NGX_DIR}/bundle/nginx-[0-9\.]*
+pushd "${OPENRESTY_LOCAL_NGX_DIR}"/bundle/nginx-[0-9\.]*
 sed "s/\(#define NGX_MAX_ERROR_STR *\)4096/\1\t${NGX_MAX_ERROR_STR}/g" -i src/core/ngx_log.h
 # fix vim coloring with an errant "
 info_msg "----- checking for NGX_MAX_ERROR_STR"
-fgrep "define NGX_MAX_ERROR_STR" src/core/ngx_log.h
+grep -F "define NGX_MAX_ERROR_STR" src/core/ngx_log.h
 popd
 
 #=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#
@@ -283,10 +304,9 @@ popd
 ### so we can take advantage of the very lovely init script and conf/packaging work the debian folks have done
 
 OPENRESTY_INSTALL_PREFIX=/usr/share/openresty
-OPENRESTY_INSTALL_PREFIX_ESCAPED=$(echo ${OPENRESTY_INSTALL_PREFIX} | sed 's/\//\\\//g')
 
 info_msg "===== configure-ing ${OPENRESTY_LOCAL_NGX_DIR} (with LD_LIBRARY_PATH=${MAXMIND_LIB_PATH}, -I${MAXMIND_INC_PATH})"
-cd ${OPENRESTY_LOCAL_NGX_DIR}
+cd "${OPENRESTY_LOCAL_NGX_DIR}"
 info_msg "[ working in $(pwd) ]"
 info_msg "----- configure command: -----"
 echo "./configure \\"
@@ -325,11 +345,11 @@ info_msg "----- end configure command: -----"
 --with-ld-opt="-Wl,-z,relro -L${MAXMIND_LIB_PATH} -lmaxminddb -L${PCRE_LIB_PATH} -lpcre" \
 --with-luajit \
 --with-debug \
---with-pcre=../../${PCRE_VERSION} \
+--with-pcre="../../${PCRE_VERSION}" \
 --with-pcre-jit \
 --with-pcre-conf-opt="--enable-unicode-properties" \
 --with-http_dav_module \
---prefix=${OPENRESTY_INSTALL_PREFIX} \
+--prefix="${OPENRESTY_INSTALL_PREFIX}" \
 --conf-path=/etc/nginx/nginx.conf \
 --http-log-path=/var/log/nginx/access.log \
 --error-log-path=/var/log/nginx/error.log \
@@ -357,7 +377,7 @@ info_msg "----- end configure command: -----"
 
 LOCAL_OPENRESTY_PACKAGE_NAME="${OPENRESTY_GITHUB_PROJECT}-${LOCAL_OPENRESTY_PACKAGE_VERSION}+realtime-geoip2"
 info_msg "===== building ${LOCAL_OPENRESTY_PACKAGE_NAME}"
-make -j "$(( $(cat /proc/cpuinfo | egrep ^processor | wc -l) + 1))"
+make -j "$(( $( grep -c -E ^processor < /proc/cpuinfo ) + 1))"
 
 info_msg "===== installing ${LOCAL_OPENRESTY_PACKAGE_NAME}"
 make install
@@ -400,10 +420,31 @@ done
 ### build the .deb package
 
 FPM_OPENRESTY_PACKAGE_VERSION=${LOCAL_OPENRESTY_PACKAGE_VERSION}+realtime-geoip2-vbox-debian-9
-FPM_OPENRESTY_FILE_PATHS="${MAXMIND_INSTALL_PATH} ${PCRE_INSTALL_PATH} ${SYSTEM_NGINX_BINARY} ${OPENRESTY_INSTALL_PREFIX}"
 info_msg "===== building .deb package for ${OPENRESTY_GITHUB_USER}/${FPM_OPENRESTY_PACKAGE_VERSION}"
-info_msg "fpm -s dir -t deb -d 'nginx-common' -n ${OPENRESTY_GITHUB_USER} -v ${FPM_OPENRESTY_PACKAGE_VERSION} --after-install ${AFTER_INSTALL_SCRIPT} ${FPM_OPENRESTY_FILE_PATHS}"
-fpm -s dir -t deb -d 'nginx-common' -n ${OPENRESTY_GITHUB_USER} -v ${FPM_OPENRESTY_PACKAGE_VERSION} --after-install ${AFTER_INSTALL_SCRIPT} ${FPM_OPENRESTY_FILE_PATHS}
+
+echo "fpm \\"
+echo "	-s dir \\"
+echo "	-t deb \\"
+echo "	-d 'nginx-common' \\"
+echo "	-n \"${OPENRESTY_GITHUB_USER}\" \\"
+echo "	-v \"${FPM_OPENRESTY_PACKAGE_VERSION}\" \\"
+echo "	--after-install \"${AFTER_INSTALL_SCRIPT}\" \\"
+echo "	\"${MAXMIND_INSTALL_PATH}\" \\"
+echo "	\"${PCRE_INSTALL_PATH}\" \\"
+echo "	\"${SYSTEM_NGINX_BINARY}\" \\"
+echo "	\"${OPENRESTY_INSTALL_PREFIX}\""
+
+fpm \
+	-s dir \
+	-t deb \
+	-d 'nginx-common' \
+	-n "${OPENRESTY_GITHUB_USER}" \
+	-v "${FPM_OPENRESTY_PACKAGE_VERSION}" \
+	--after-install "${AFTER_INSTALL_SCRIPT}" \
+	"${MAXMIND_INSTALL_PATH}" \
+	"${PCRE_INSTALL_PATH}" \
+	"${SYSTEM_NGINX_BINARY}" \
+	"${OPENRESTY_INSTALL_PREFIX}"
 
 #=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#=#
 
